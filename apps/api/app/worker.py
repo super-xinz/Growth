@@ -1,13 +1,25 @@
-from celery import Celery
 import asyncio
-from .config import get_settings
+
+from celery import Celery
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
+
 from .automation import run_due_automations
-from .database import SessionLocal
-from .providers import provider_for
+from .config import get_settings
 from .product_lifecycle import purge_expired_products as purge_expired
+from .providers import provider_for
 from .runtime_settings import effective_settings
 
 settings = get_settings()
+
+
+def _create_worker_session_factory(database_url: str):
+    """Create loop-safe database sessions for Celery's synchronous task workers."""
+    engine = create_async_engine(database_url, pool_pre_ping=True, poolclass=NullPool)
+    return engine, async_sessionmaker(engine, expire_on_commit=False)
+
+
+worker_engine, WorkerSessionLocal = _create_worker_session_factory(settings.database_url)
 celery_app = Celery(
     "growthagent", broker=settings.celery_broker_url, backend=settings.celery_result_backend
 )
@@ -38,7 +50,7 @@ def healthcheck():
 @celery_app.task(name="purge_expired_products")
 def purge_expired_products_task():
     async def run():
-        async with SessionLocal() as session:
+        async with WorkerSessionLocal() as session:
             return await purge_expired(session)
 
     return {"purged": asyncio.run(run())}
@@ -47,7 +59,7 @@ def purge_expired_products_task():
 @celery_app.task(name="run_xiaohongshu_automation")
 def run_xiaohongshu_automation_task():
     async def run():
-        async with SessionLocal() as session:
+        async with WorkerSessionLocal() as session:
             runtime_settings = await effective_settings(session)
             return await run_due_automations(
                 session,
