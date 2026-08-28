@@ -1,0 +1,78 @@
+name: threadpilot
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: threadpilot
+      POSTGRES_USER: threadpilot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U threadpilot -d threadpilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  xiaohongshu-mcp:
+    image: xpzouying/xiaohongshu-mcp:latest
+    platform: linux/amd64
+    restart: unless-stopped
+    init: true
+    environment:
+      COOKIES_PATH: /app/data/cookies.json
+      HOME: /app/data/home
+      XDG_CACHE_HOME: /app/data/cache
+      XDG_CONFIG_HOME: /app/data/config
+    ports: ["127.0.0.1:18060:18060"]
+    volumes: [xiaohongshu_data:/app/data]
+
+  api:
+    image: ghcr.io/super-xinz/threadpilot-api:${THREADPILOT_VERSION:-latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://threadpilot:${POSTGRES_PASSWORD}@postgres:5432/threadpilot
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      XIAOHONGSHU_MCP_URL: http://xiaohongshu-mcp:18060
+    ports: ["127.0.0.1:8000:8000"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_started}
+      xiaohongshu-mcp: {condition: service_started}
+
+  worker:
+    image: ghcr.io/super-xinz/threadpilot-api:${THREADPILOT_VERSION:-latest}
+    restart: unless-stopped
+    command: celery -A app.worker.celery_app worker -B --loglevel=INFO --schedule=/tmp/celerybeat-schedule
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://threadpilot:${POSTGRES_PASSWORD}@postgres:5432/threadpilot
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      XIAOHONGSHU_MCP_URL: http://xiaohongshu-mcp:18060
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_started}
+      xiaohongshu-mcp: {condition: service_started}
+
+  web:
+    image: ghcr.io/super-xinz/threadpilot-web:${THREADPILOT_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      API_URL: http://api:8000
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on: [api]
+
+volumes:
+  postgres_data:
+  xiaohongshu_data:

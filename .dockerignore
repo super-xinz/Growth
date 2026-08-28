@@ -1,0 +1,13 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+.xiaohongshu-data
+**/.next
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+dist
+前端设计必须参考
+可以参考的开源项目

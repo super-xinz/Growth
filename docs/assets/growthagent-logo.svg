@@ -1,0 +1,13 @@
+<svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
+  <title id="title">GrowthAgent</title>
+  <rect x="4" y="4" width="88" height="88" rx="22" fill="#EB0000"/>
+  <g transform="translate(16 16) scale(2)" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7.5 21.5 13 16l4.2 3.2L24.5 10"/>
+    <path d="M19.3 10h5.2v5.2"/>
+  </g>
+  <g transform="translate(16 16) scale(2)" fill="#FFFFFF">
+    <circle cx="7.5" cy="21.5" r="2"/>
+    <circle cx="13" cy="16" r="2"/>
+    <circle cx="17.2" cy="19.2" r="2"/>
+  </g>
+</svg>
