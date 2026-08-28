@@ -1,0 +1,7 @@
+FROM xpzouying/xiaohongshu-mcp:latest
+
+ENV COOKIES_PATH=/app/data/cookies.json \
+    HOME=/app/data/home \
+    XDG_CACHE_HOME=/app/data/cache \
+    XDG_CONFIG_HOME=/app/data/config
+EXPOSE 18060

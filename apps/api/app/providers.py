@@ -2,7 +2,9 @@ import json
 import re
 from abc import ABC, abstractmethod
 from collections import Counter
+
 from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI, BadRequestError
+
 from .config import Settings
 from .prompting import (
     OPPORTUNITY_SCORING_SYSTEM_PROMPT,
@@ -133,12 +135,15 @@ class OpenAICompatibleProvider(LLMProvider):
             max_retries=0,
         )
         self.model = settings.llm_strong_model
-        self.extra_body = (
-            {"enable_thinking": settings.llm_enable_thinking}
-            if "dashscope" in settings.llm_base_url.lower()
-            or self.model.lower().startswith("qwen")
-            else None
-        )
+        base_url = settings.llm_base_url.lower()
+        model = self.model.lower()
+        if "deepseek" in base_url or model.startswith("deepseek"):
+            thinking_type = "enabled" if settings.llm_enable_thinking else "disabled"
+            self.extra_body = {"thinking": {"type": thinking_type}}
+        elif "dashscope" in base_url or model.startswith("qwen"):
+            self.extra_body = {"enable_thinking": settings.llm_enable_thinking}
+        else:
+            self.extra_body = None
 
     async def generate_structured(self, task: str, payload: dict, schema: dict) -> dict:
         system = {

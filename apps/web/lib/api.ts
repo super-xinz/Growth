@@ -1,6 +1,6 @@
 export const API=typeof window==="undefined"
   ? process.env.API_URL||"http://api:8000"
-  : process.env.NEXT_PUBLIC_API_URL||"http://localhost:8000";
+  : "/api";
 
 export async function responseDetail(response:Response){
   const text=await response.text();

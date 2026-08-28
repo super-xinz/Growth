@@ -1,13 +1,16 @@
-from datetime import datetime, timedelta, timezone
 import logging
+from datetime import datetime, timedelta, timezone
+
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import func, select
+from fastapi.responses import PlainTextResponse, RedirectResponse
+from redis.asyncio import Redis
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from .config import get_settings
+
 from .automation import AutomationError, run_product_automation
+from .config import get_settings
 from .database import get_db
 from .ingestion import ingest_url
 from .models import (
@@ -27,8 +30,7 @@ from .models import (
     TrackingLink,
     XiaohongshuOpportunity,
 )
-from .providers import provider_for
-from .providers import LLMProviderError
+from .providers import LLMProviderError, provider_for
 from .runtime_settings import effective_settings, save_llm_settings
 from .schemas import (
     AnalyticsOverviewOut,
@@ -40,12 +42,12 @@ from .schemas import (
     LLMSettingsUpdate,
     LLMTestOut,
     OpportunityOut,
+    ProductBrainData,
     ProductCreate,
-    ProductOut,
     ProductOrderUpdate,
+    ProductOut,
     ProductSubredditPatch,
     ProductUpdate,
-    ProductBrainData,
     RedditAccountCreate,
     RedditAccountOut,
     ReplyOut,
@@ -94,6 +96,21 @@ async def health():
         "autopublish_scope": "per_product",
         "kill_switch": settings.global_kill_switch,
     }
+
+
+@app.get("/ready")
+async def ready(db: AsyncSession = Depends(get_db)):
+    settings = get_settings()
+    redis = Redis.from_url(settings.redis_url)
+    try:
+        await db.execute(text("SELECT 1"))
+        await redis.ping()
+    except Exception as error:
+        logger.warning("Readiness check failed: %s", type(error).__name__)
+        raise HTTPException(503, "依赖服务尚未就绪") from error
+    finally:
+        await redis.aclose()
+    return {"status": "ready", "database": "ok", "redis": "ok"}
 
 
 def llm_settings_response(settings) -> LLMSettingsOut:
