@@ -7,6 +7,7 @@ import {API, responseDetail} from "@/lib/api";
 
 type Status={is_logged_in?:boolean;username?:string};
 type Qrcode={img?:string;timeout?:string;is_logged_in?:boolean};
+const STATUS_TIMEOUT_MS=20_000;
 
 export default function XiaohongshuLogin({initialStatus}:{initialStatus:Status|null}){
   const [status,setStatus]=useState(initialStatus);
@@ -22,7 +23,7 @@ export default function XiaohongshuLogin({initialStatus}:{initialStatus:Status|n
   },[]);
   const refreshStatus=useCallback(async()=>{
     const controller=new AbortController();
-    const timer=window.setTimeout(()=>controller.abort(),5000);
+    const timer=window.setTimeout(()=>controller.abort(),STATUS_TIMEOUT_MS);
     setChecking(true);
     try{const next=await request("/v1/xiaohongshu/status","GET",controller.signal);setStatus(next);setError("");return Boolean(next.is_logged_in)}
     catch(reason){
