@@ -1,7 +1,8 @@
 """add one-time xiaohongshu confirmations"""
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import context, op
 
 revision = "0004"
 down_revision = "0003"
@@ -10,6 +11,8 @@ depends_on = None
 
 
 def upgrade():
+    if context.get_context().config.attributes.get("growthagent_metadata_bootstrap"):
+        return
     op.create_table(
         "xiaohongshu_confirmations",
         sa.Column("id", sa.String(36), primary_key=True),

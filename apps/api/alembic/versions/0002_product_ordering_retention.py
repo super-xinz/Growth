@@ -1,7 +1,8 @@
 """add product ordering and retention fields"""
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import context, op
 
 revision = "0002"
 down_revision = "0001"
@@ -10,6 +11,8 @@ depends_on = None
 
 
 def upgrade():
+    if context.get_context().config.attributes.get("growthagent_metadata_bootstrap"):
+        return
     op.add_column("products", sa.Column("sort_order", sa.Integer(), nullable=False, server_default="0"))
     op.add_column("products", sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True))
     op.add_column("products", sa.Column("purge_after", sa.DateTime(timezone=True), nullable=True))

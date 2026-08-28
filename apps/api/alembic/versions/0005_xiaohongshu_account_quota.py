@@ -1,7 +1,8 @@
 """bind confirmations to account and track daily quota"""
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import context, op
 
 revision = "0005"
 down_revision = "0004"
@@ -10,6 +11,8 @@ depends_on = None
 
 
 def upgrade():
+    if context.get_context().config.attributes.get("growthagent_metadata_bootstrap"):
+        return
     op.add_column(
         "xiaohongshu_confirmations",
         sa.Column("account_id", sa.String(120), nullable=False, server_default=""),

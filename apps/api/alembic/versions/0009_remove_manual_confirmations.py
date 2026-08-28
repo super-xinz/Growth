@@ -1,8 +1,8 @@
 """remove the retired manual confirmation workflow"""
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import context, op
 
 revision = "0009"
 down_revision = "0008"
@@ -11,6 +11,8 @@ depends_on = None
 
 
 def upgrade():
+    if context.get_context().config.attributes.get("growthagent_metadata_bootstrap"):
+        return
     op.drop_table("xiaohongshu_confirmations")
 
 

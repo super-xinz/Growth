@@ -1,8 +1,8 @@
 """add guarded Xiaohongshu automation state"""
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import context, op
 
 revision = "0008"
 down_revision = "0007"
@@ -11,6 +11,8 @@ depends_on = None
 
 
 def upgrade():
+    if context.get_context().config.attributes.get("growthagent_metadata_bootstrap"):
+        return
     product_columns = [
         sa.Column("auto_score_threshold", sa.Float(), nullable=False, server_default="0.75"),
         sa.Column("auto_risk_threshold", sa.Float(), nullable=False, server_default="0.35"),

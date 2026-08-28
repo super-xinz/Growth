@@ -1,13 +1,16 @@
 """Store encrypted local application settings."""
 
 import sqlalchemy as sa
-from alembic import op
+
+from alembic import context, op
 
 revision = "0010"
 down_revision = "0009"
 
 
 def upgrade():
+    if context.get_context().config.attributes.get("growthagent_metadata_bootstrap"):
+        return
     op.create_table(
         "app_settings",
         sa.Column("key", sa.String(length=100), nullable=False),
