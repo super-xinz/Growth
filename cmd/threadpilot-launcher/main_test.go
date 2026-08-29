@@ -41,6 +41,12 @@ func TestDefaultEnvUsesManagedGatewayWithoutUpstreamKey(t *testing.T) {
 	}
 }
 
+func TestLauncherStartsWithXiaohongshuOnboarding(t *testing.T) {
+	if onboardingURL != "http://localhost:3000/account?onboarding=1&next=%2Fdashboard" {
+		t.Fatalf("unexpected onboarding URL: %s", onboardingURL)
+	}
+}
+
 func TestDefaultEnvFallsBackToMockWhenGatewayConfigIsIncomplete(t *testing.T) {
 	withManagedDefaults(t, "https://growthagent.example/api/v1/managed-llm", "", "token")
 	values := envValues(defaultEnv())

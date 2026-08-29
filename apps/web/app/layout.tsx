@@ -1,7 +1,8 @@
 import "./globals.css";
 import "./navigation.css";
-import {getProducts} from "@/lib/api";
+import {getHealth, getProducts} from "@/lib/api";
 import TopNav from "./SideNav";
+import XiaohongshuGate from "./XiaohongshuGate";
 
 export const metadata = {
   title: "GrowthAgent｜把真实需求变成增长",
@@ -9,10 +10,11 @@ export const metadata = {
 };
 
 export default async function Layout({children}: {children: React.ReactNode}) {
-  const products = await getProducts();
+  const [health, products] = await Promise.all([getHealth(), getProducts()]);
   return (
     <html lang="zh-CN">
       <body>
+        <XiaohongshuGate publicDemo={Boolean(health.public_demo)} />
         <div className="app-shell">
           <TopNav products={products} />
           <main className="workspace-main">{children}</main>

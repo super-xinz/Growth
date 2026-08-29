@@ -59,7 +59,7 @@ AI 正在快速降低软件开发的门槛。当“把产品做出来”不再�
 
 1. 下载最新版 [GrowthAgent-Windows-x64.exe](https://github.com/super-xinz/Growth/releases/latest/download/GrowthAgent-Windows-x64.exe)；
 2. 双击运行，启动器会自动生成本地密钥、配置 GrowthAgent 托管模型、拉取容器并等待服务就绪；
-3. 浏览器将自动打开 `http://localhost:3000/dashboard`。
+3. 浏览器将自动进入小红书扫码页；本人扫码后会直接进入工作台。模型、密钥和运行参数无需配置。
 
 再次运行会更新并启动服务。停止服务：
 
@@ -79,6 +79,8 @@ tar -xzf GrowthAgent-macOS-arm64.tar.gz   # 按平台替换文件名
 ```
 
 macOS 安装包尚未完成 Developer ID 签名与公证，首次运行可能被系统拦截；生产分发前应完成正式签名。Linux 需要 Docker Engine 与 Compose v2。
+
+安装版首次启动会直接要求本人扫码登录小红书，登录成功后自动进入工作台。除提供自己的产品网站或 GitHub 地址外，不需要再配置模型或运行参数。
 
 ### 开发者
 

@@ -10,6 +10,7 @@ import {
   filterOpportunities,
   retentionDays,
 } from "../lib/navigation.ts";
+import {safeOnboardingTarget, xiaohongshuOnboardingPath} from "../lib/onboarding.ts";
 
 const products = [
   {id: "alpha", name: "Alpha Pilot", status: "READY"},
@@ -21,6 +22,16 @@ test("parses a real product id but excludes the new route", () => {
   assert.equal(parseProductId("/products/alpha/opportunities"), "alpha");
   assert.equal(parseProductId("/products/new"), null);
   assert.equal(parseProductId("/dashboard"), null);
+});
+
+test("routes local users through Xiaohongshu login without allowing an open redirect", () => {
+  assert.equal(
+    xiaohongshuOnboardingPath("/products/alpha"),
+    "/account?onboarding=1&next=%2Fproducts%2Falpha",
+  );
+  assert.equal(safeOnboardingTarget("//evil.example"), "/dashboard");
+  assert.equal(safeOnboardingTarget("https://evil.example"), "/dashboard");
+  assert.equal(safeOnboardingTarget("/account"), "/dashboard");
 });
 
 test("moves a product without mutating the source order", () => {

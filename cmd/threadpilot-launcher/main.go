@@ -26,6 +26,8 @@ var (
 	managedLLMGatewayToken = ""
 )
 
+const onboardingURL = "http://localhost:3000/account?onboarding=1&next=%2Fdashboard"
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "GrowthAgent 启动失败：%v\n", err)
@@ -75,7 +77,7 @@ func run() error {
 		return docker(root, append(args, "down"))
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--open" {
-		return openBrowser("http://localhost:3000/dashboard")
+		return openBrowser(onboardingURL)
 	}
 
 	fmt.Println("正在启动 GrowthAgent，首次运行会下载容器镜像……")
@@ -85,8 +87,8 @@ func run() error {
 	if err := waitFor("http://localhost:3000/dashboard", 3*time.Minute); err != nil {
 		return err
 	}
-	fmt.Println("GrowthAgent 已就绪：http://localhost:3000/dashboard")
-	return openBrowser("http://localhost:3000/dashboard")
+	fmt.Println("GrowthAgent 已就绪，请在浏览器中扫码登录小红书。")
+	return openBrowser(onboardingURL)
 }
 
 func appDir() (string, error) {

@@ -448,6 +448,11 @@ textarea::placeholder { color: #b3b3b3; }
 .account-status p { margin-top: 7px; color: var(--body); font-size: 13px; line-height: 1.55; }
 .qr-panel { display: flex; align-items: center; gap: 24px; margin-top: 24px; padding: 20px; border: 1px solid var(--line-strong); border-radius: 6px; }
 .qr-panel p { color: var(--body); font-size: 13px; line-height: 1.55; }
+.login-gate { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 24px; background: rgba(255,255,255,.96); }
+.login-gate-card { width: min(100%, 460px); padding: 38px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--white); box-shadow: 0 24px 80px rgba(32,33,36,.12); text-align: center; }
+.login-gate-card h1 { font-size: clamp(26px, 5vw, 36px); line-height: 1.12; letter-spacing: -.04em; }
+.login-gate-card p { margin: 14px auto 24px; color: var(--body); font-size: 14px; line-height: 1.65; }
+.login-gate-card .spinner { display: block; margin: 0 auto; }
 .loading-page { min-height: 60vh; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; color: var(--body); }
 .state-page { width: min(calc(100% - 2 * var(--page-gutter)), 640px); margin: 70px auto; padding: 48px; text-align: center; }
 .state-icon { display: inline-flex; align-items: center; justify-content: center; min-width: 58px; height: 58px; margin-bottom: 20px; padding: 0 13px; border-radius: 6px; background: var(--red); color: var(--white); font-size: 16px; font-weight: 750; }
@@ -503,6 +508,7 @@ textarea::placeholder { color: #b3b3b3; }
   .detail-header { flex-direction: column; }
   .guardrails > div { min-height: 62px; }
   .qr-panel { align-items: flex-start; flex-direction: column; }
+  .login-gate-card { padding: 30px 22px; }
   .trash-row { align-items: flex-start; flex-direction: column; }
 }
 
