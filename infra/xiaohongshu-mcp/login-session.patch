@@ -1,8 +1,52 @@
+diff --git a/service.go b/service.go
+index 499b216..e15f052 100644
+--- a/service.go
++++ b/service.go
+@@ -142,13 +142,19 @@ func (s *XiaohongshuService) GetLoginQrcode(ctx context.Context) (*LoginQrcodeRe
+ 		_ = page.Close()
+ 		b.Close()
+ 	}
++	// GrowthAgent modification: the request owns the browser until a successful
++	// QR response hands it to the background scan waiter. This also guarantees
++	// cleanup when QR generation returns an error.
++	handedToScanWaiter := false
++	defer func() {
++		if !handedToScanWaiter {
++			deferFunc()
++		}
++	}()
+ 
+ 	loginAction := xiaohongshu.NewLogin(page)
+ 
+ 	img, loggedIn, err := loginAction.FetchQrcodeImage(ctx)
+-	if err != nil || loggedIn {
+-		defer deferFunc()
+-	}
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -157,6 +163,7 @@ func (s *XiaohongshuService) GetLoginQrcode(ctx context.Context) (*LoginQrcodeRe
+ 
+ 	if !loggedIn {
+ 		s.waitScanInBackground(loginAction, page, deferFunc, timeout)
++		handedToScanWaiter = true
+ 	}
+ 
+ 	return &LoginQrcodeResponse{
 diff --git a/xiaohongshu/login.go b/xiaohongshu/login.go
-index 67e002d..24d8ef7 100644
+index 67e002d..d31cf7c 100644
 --- a/xiaohongshu/login.go
 +++ b/xiaohongshu/login.go
-@@ -29,11 +29,18 @@ func (a *LoginAction) CheckLoginStatus(ctx context.Context) (bool, error) {
+@@ -3,6 +3,8 @@ package xiaohongshu
+ import (
+ 	"context"
+ 	"encoding/json"
++	"net/url"
++	"strings"
+ 	"time"
+ 
+ 	"github.com/go-rod/rod"
+@@ -29,11 +31,18 @@ func (a *LoginAction) CheckLoginStatus(ctx context.Context) (bool, error) {
  		return false, errors.Wrap(err, "check login status failed")
  	}
  
@@ -24,8 +68,74 @@ index 67e002d..24d8ef7 100644
  }
  
  // CurrentUser 当前登录用户的基础信息。
-@@ -112,6 +119,10 @@ func (a *LoginAction) FetchQrcodeImage(ctx context.Context) (string, bool, error
+@@ -88,18 +97,37 @@ func (a *LoginAction) Login(ctx context.Context) error {
+ }
  
+ func (a *LoginAction) FetchQrcodeImage(ctx context.Context) (string, bool, error) {
+-	pp := a.page.Context(ctx)
++	// GrowthAgent modification: upstream used Must* calls without a bounded
++	// timeout. When Xiaohongshu rejects a cloud egress IP, that path waits until
++	// the caller cancels and panics, leaking the browser process.
++	pp := a.page.Context(ctx).Timeout(25 * time.Second)
+ 
+ 	// 导航到小红书首页，这会触发二维码弹窗
+-	pp.MustNavigate("https://www.xiaohongshu.com/explore").MustWaitLoad()
++	if err := pp.Navigate("https://www.xiaohongshu.com/explore"); err != nil {
++		return "", false, errors.Wrap(err, "navigate to xiaohongshu login page failed")
++	}
++	if err := pp.WaitLoad(); err != nil {
++		return "", false, errors.Wrap(err, "wait for xiaohongshu login page failed")
++	}
+ 
+ 	time.Sleep(2 * time.Second)
++	if err := loginPageError(pp); err != nil {
++		return "", false, err
++	}
+ 
+ 	if exists, _, _ := pp.Has(".main-container .user .link-wrapper .channel"); exists {
+ 		return "", true, nil
+ 	}
+ 
+-	src, err := pp.MustElement(".login-container .qrcode-img").Attribute("src")
++	el, err := pp.Element(".qrcode-img")
++	if err != nil {
++		if pageErr := loginPageError(pp); pageErr != nil {
++			return "", false, pageErr
++		}
++		return "", false, errors.Wrap(err, "qrcode element not found")
++	}
++
++	src, err := el.Attribute("src")
+ 	if err != nil {
+ 		return "", false, errors.Wrap(err, "get qrcode src failed")
+ 	}
+@@ -110,8 +138,35 @@ func (a *LoginAction) FetchQrcodeImage(ctx context.Context) (string, bool, error
+ 	return *src, false, nil
+ }
+ 
++func loginPageError(page *rod.Page) error {
++	info, err := page.Info()
++	if err != nil {
++		return nil
++	}
++
++	parsed, err := url.Parse(info.URL)
++	if err != nil || !strings.Contains(parsed.Path, "/website-login/error") {
++		return nil
++	}
++
++	message := parsed.Query().Get("error_msg")
++	if message == "" {
++		message = "login page rejected the request"
++	}
++	code := parsed.Query().Get("error_code")
++	if code == "" {
++		return errors.Errorf("xiaohongshu login page rejected request: %s", message)
++	}
++
++	return errors.Errorf("xiaohongshu login page rejected request: %s (code %s)", message, code)
++}
++
  func (a *LoginAction) WaitForLogin(ctx context.Context) bool {
  	pp := a.page.Context(ctx)
 +	// GrowthAgent modification: remember the anonymous/expired token present when
@@ -35,7 +145,7 @@ index 67e002d..24d8ef7 100644
  	ticker := time.NewTicker(500 * time.Millisecond)
  	defer ticker.Stop()
  
-@@ -120,10 +131,30 @@ func (a *LoginAction) WaitForLogin(ctx context.Context) bool {
+@@ -120,10 +175,30 @@ func (a *LoginAction) WaitForLogin(ctx context.Context) bool {
  		case <-ctx.Done():
  			return false
  		case <-ticker.C:

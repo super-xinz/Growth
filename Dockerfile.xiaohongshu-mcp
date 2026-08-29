@@ -18,7 +18,7 @@ RUN git apply --check /tmp/login-session.patch && \
     gofmt -w xiaohongshu/login.go && \
     git diff --check && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-      -trimpath -ldflags="-s -w -X main.version=v2.5.0-growthagent.1" \
+      -trimpath -ldflags="-s -w -X main.version=v2.5.0-growthagent.2" \
       -o /out/app .
 
 FROM xpzouying/xiaohongshu-mcp@sha256:88e2603f324f567e0a254ed7a1e24d632a16eccc30e84ef3fb887e34a03d0fe3

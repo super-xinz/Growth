@@ -47,6 +47,7 @@ GitHub Actions 同时设置：
 - 公开 Demo：不显示二维码、不读取访问者 Cookie，只提供本地版下载入口。
 - 当前 API 和小红书浏览器服务是单用户架构。若要让公网网页同时服务多个用户，必须先增加用户认证、数据库租户隔离，并为每个租户隔离小红书浏览器会话；在此之前不要开启 `ALLOW_PUBLIC_MUTATIONS=true`。
 - 单用户托管实例可用 `ADMIN_API_TOKEN` 完成受控维护和本人扫码。令牌只保存在服务端运维环境中，泄露后应立即轮换。
+- 云端扫码若返回小红书错误码 `300013`，说明当前数据中心出口被登录安全策略拒绝。只在 `xiaohongshu-mcp` 服务中以 Secret 配置 `XHS_PROXY=http://user:password@host:port`（也支持 HTTPS/SOCKS5），并使用固定、可信、独享的出口；不要使用公开免费代理。
 
 ## 安装包签名
 

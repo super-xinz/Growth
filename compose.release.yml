@@ -29,6 +29,7 @@ services:
       HOME: /app/data/home
       XDG_CACHE_HOME: /app/cache
       XDG_CONFIG_HOME: /app/data/config
+      XHS_PROXY: ${XHS_PROXY:-}
     ports: ["127.0.0.1:18060:18060"]
     volumes: [xiaohongshu_data:/app/data]
 

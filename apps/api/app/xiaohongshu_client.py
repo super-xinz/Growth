@@ -84,6 +84,11 @@ class XiaohongshuClient:
     def _friendly_error(raw: str, path: str) -> str:
         """Translate common MCP errors into user-friendly Chinese messages."""
         lower = raw.lower()
+        if path == "/api/v1/login/qrcode" and "300013" in lower:
+            return (
+                "小红书拒绝了当前云端网络出口（错误码 300013）；"
+                "请为小红书服务配置 XHS_PROXY 后重试"
+            )
         if "rate" in lower or "频" in lower or "too many" in lower or "limit" in lower:
             return "操作过于频繁，请稍后再试"
         if "login" in lower or "cookie" in lower or "登录" in lower or "auth" in lower:

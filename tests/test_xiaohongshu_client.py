@@ -82,3 +82,24 @@ async def test_remote_error_includes_actionable_mcp_details():
     with pytest.raises(XiaohongshuError, match="提交按钮一直不可用"):
         await client.reply("feed-1", "token", "测试回复", comment_id="comment-1")
     await client.close()
+
+
+@pytest.mark.asyncio
+async def test_qrcode_safety_redirect_explains_proxy_configuration():
+    def handler(request: httpx.Request):
+        return httpx.Response(
+            500,
+            json={
+                "error": "获取登录二维码失败",
+                "code": "STATUS_CHECK_FAILED",
+                "details": (
+                    "xiaohongshu login page rejected request: "
+                    "访问频繁，请稍后再试 (code 300013)"
+                ),
+            },
+        )
+
+    client = XiaohongshuClient(transport=transport(handler))
+    with pytest.raises(XiaohongshuError, match="XHS_PROXY"):
+        await client.login_qrcode()
+    await client.close()
