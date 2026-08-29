@@ -195,8 +195,12 @@ async def test_complete_guarded_workflow(api_client):
 
 
 @pytest.mark.asyncio
-async def test_public_demo_is_read_only(api_client):
+async def test_public_demo_is_read_only(api_client, monkeypatch):
     _client, _session_factory = api_client
+    admin_settings = main_module.get_settings().model_copy(
+        update={"admin_api_token": "test-admin-token"}
+    )
+    monkeypatch.setattr(main_module, "get_settings", lambda: admin_settings)
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="https://demo.example"
     ) as public_client:
@@ -217,3 +221,18 @@ async def test_public_demo_is_read_only(api_client):
         assert "只读模式" in create.json()["detail"]
 
         assert (await public_client.get("/v1/xiaohongshu/login/qrcode")).status_code == 403
+
+        wrong_token = await public_client.post(
+            "/v1/products",
+            headers={"Authorization": "Bearer wrong-token"},
+            json={"name": "Still blocked", "website_url": "https://example.com"},
+        )
+        assert wrong_token.status_code == 403
+
+        admin_create = await public_client.post(
+            "/v1/products",
+            headers={"Authorization": "Bearer test-admin-token"},
+            json={"name": "Admin maintenance", "website_url": "https://example.com"},
+        )
+        assert admin_create.status_code == 201
+        assert "x-growthagent-demo-mode" not in admin_create.headers

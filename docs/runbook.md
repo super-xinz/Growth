@@ -8,6 +8,7 @@
 - 紧急停止：设置 `GLOBAL_KILL_SWITCH=true` 并重启 API 与 worker。
 - 公网 Demo：设置 `PUBLIC_DEMO_MODE=true`，后端会拒绝所有写请求以及账号、OAuth 和二维码等敏感读取请求。
 - 只有部署在可信认证代理之后时，才可设置 `ALLOW_PUBLIC_MUTATIONS=true`；不要在无认证公网实例中启用。
+- 远程维护：只在 API 服务设置独立随机的 `ADMIN_API_TOKEN`，维护请求使用 `Authorization: Bearer <token>`；不要复用会下发给安装包的模型网关 Token。
 - 前端保存的模型密钥无法读取：确认 `ENCRYPTION_KEY` 没有变化。如密钥已丢失，需在设置页重新填写 API Key。
 - Apple Silicon 上小红书服务启动较慢：上游镜像以 `linux/amd64` 兼容模式运行，确保 Docker Desktop 已启用 x86/amd64 仿真。
 
@@ -45,6 +46,7 @@ GitHub Actions 同时设置：
 - 本机安装版：用户在“设置 → 小红书账号”中本人扫码，Cookie 只进入本机 Docker volume。
 - 公开 Demo：不显示二维码、不读取访问者 Cookie，只提供本地版下载入口。
 - 当前 API 和小红书浏览器服务是单用户架构。若要让公网网页同时服务多个用户，必须先增加用户认证、数据库租户隔离，并为每个租户隔离小红书浏览器会话；在此之前不要开启 `ALLOW_PUBLIC_MUTATIONS=true`。
+- 单用户托管实例可用 `ADMIN_API_TOKEN` 完成受控维护和本人扫码。令牌只保存在服务端运维环境中，泄露后应立即轮换。
 
 ## 安装包签名
 

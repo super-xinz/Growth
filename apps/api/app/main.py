@@ -1,4 +1,5 @@
 import logging
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -108,17 +109,29 @@ def public_demo_active(request: Request) -> bool:
     return hostname not in LOCAL_HOSTS and not hostname.endswith(".local")
 
 
+def admin_request_authorized(request: Request, settings) -> bool:
+    configured_token = settings.admin_api_token.strip()
+    scheme, separator, supplied_token = request.headers.get("authorization", "").partition(" ")
+    return bool(
+        configured_token
+        and separator
+        and scheme.lower() == "bearer"
+        and secrets.compare_digest(supplied_token.strip(), configured_token)
+    )
+
+
 @app.middleware("http")
 async def enforce_public_demo_boundary(request: Request, call_next):
     demo_active = public_demo_active(request)
-    blocked_get = request.method in {"GET", "HEAD"} and request.url.path in PUBLIC_DEMO_BLOCKED_GETS
     settings = get_settings()
+    demo_restricted = demo_active and not admin_request_authorized(request, settings)
+    blocked_get = request.method in {"GET", "HEAD"} and request.url.path in PUBLIC_DEMO_BLOCKED_GETS
     managed_gateway_post = (
         request.method == "POST"
         and request.url.path == "/v1/managed-llm/chat/completions"
         and settings.managed_llm_gateway_enabled
     )
-    if demo_active and (
+    if demo_restricted and (
         (request.method not in {"GET", "HEAD", "OPTIONS"} and not managed_gateway_post)
         or blocked_get
     ):
@@ -128,7 +141,7 @@ async def enforce_public_demo_boundary(request: Request, call_next):
             headers={"x-growthagent-demo-mode": "read-only"},
         )
     response = await call_next(request)
-    if demo_active:
+    if demo_restricted:
         response.headers["x-growthagent-demo-mode"] = "read-only"
     return response
 

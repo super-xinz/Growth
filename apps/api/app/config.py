@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     app_url: str = "http://localhost:3000"
     public_demo_mode: bool = False
     allow_public_mutations: bool = False
+    admin_api_token: str = ""
     secret_key: str = "change_me"
     encryption_key: str = "change_me"
     database_url: str = "sqlite+aiosqlite:///./reddit_growth.db"
