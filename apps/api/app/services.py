@@ -2,10 +2,12 @@ import hashlib
 import re
 import secrets
 from datetime import timedelta
+
 from pydantic import ValidationError
-from sqlalchemy import select, update, func
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
 from .config import Settings
 from .models import (
     Candidate,

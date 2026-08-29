@@ -1,9 +1,8 @@
 import pytest
-from sqlalchemy import select
-
 from app.config import Settings
 from app.models import AppSetting
 from app.runtime_settings import decrypt_settings, encrypt_settings
+from sqlalchemy import select
 
 pytest_plugins = ["test_api_workflow"]
 

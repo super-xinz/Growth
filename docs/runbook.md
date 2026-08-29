@@ -6,5 +6,7 @@
 - 自动任务显示 `ATTENTION`：保留具体错误；连续三次会转为 `PAUSED_SAFETY`。
 - 机会显示“发布状态待确认”：外部请求响应不确定，系统不会重试。到小红书原文人工核对是否已发布。
 - 紧急停止：设置 `GLOBAL_KILL_SWITCH=true` 并重启 API 与 worker。
+- 公网 Demo：设置 `PUBLIC_DEMO_MODE=true`，后端会拒绝所有写请求以及账号、OAuth 和二维码等敏感读取请求。
+- 只有部署在可信认证代理之后时，才可设置 `ALLOW_PUBLIC_MUTATIONS=true`；不要在无认证公网实例中启用。
 - 前端保存的模型密钥无法读取：确认 `ENCRYPTION_KEY` 没有变化。如密钥已丢失，需在设置页重新填写 API Key。
 - Apple Silicon 上小红书服务启动较慢：上游镜像以 `linux/amd64` 兼容模式运行，确保 Docker Desktop 已启用 x86/amd64 仿真。

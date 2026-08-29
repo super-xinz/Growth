@@ -1,6 +1,5 @@
 import httpx
 import pytest
-
 from app.xiaohongshu_client import XiaohongshuClient, XiaohongshuError
 
 

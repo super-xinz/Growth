@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
-
 from app.models import Product
 from app.product_lifecycle import purge_expired_products
 

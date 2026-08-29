@@ -3,7 +3,9 @@ import hashlib
 import json
 import sys
 from datetime import datetime, timezone
+
 from sqlalchemy import select
+
 from .config import get_settings
 from .database import SessionLocal, engine
 from .models import Base, Candidate, Product, ProductSubreddit, QueryTerm, RedditContent, Subreddit

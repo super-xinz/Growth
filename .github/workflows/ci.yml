@@ -58,7 +58,7 @@ jobs:
           go-version: "1.22"
       - run: gofmt -w cmd/threadpilot-launcher && git diff --exit-code
       - run: go test ./...
-      - run: GOOS=windows GOARCH=amd64 go build -o /tmp/ThreadPilot-Windows-x64.exe ./cmd/threadpilot-launcher
+      - run: GOOS=windows GOARCH=amd64 go build -o /tmp/GrowthAgent-Windows-x64.exe ./cmd/threadpilot-launcher
 
   compose:
     runs-on: ubuntu-latest

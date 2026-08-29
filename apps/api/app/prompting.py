@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 
-
 PRODUCT_BRAIN_SYSTEM_PROMPT = """你是一名严谨的产品研究员，要把公开产品资料整理成可用于小红书需求发现的 Product Brain。
 
 你的首要任务不是复述官网，而是建立“什么人，在什么情境下，因为什么痛点，会需要这个产品”的可检索模型。返回结果必须严格满足给定 JSON Schema，并包含所有必填字段。

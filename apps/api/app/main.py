@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse, RedirectResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from redis.asyncio import Redis
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -76,6 +76,15 @@ from .xiaohongshu_service import (
 
 logger = logging.getLogger(__name__)
 
+LOCAL_HOSTS = {"", "api", "localhost", "test", "testserver", "web", "127.0.0.1", "::1"}
+PUBLIC_DEMO_BLOCKED_GETS = {
+    "/v1/reddit/accounts",
+    "/v1/reddit/oauth/callback",
+    "/v1/reddit/oauth/start",
+    "/v1/xiaohongshu/account",
+    "/v1/xiaohongshu/login/qrcode",
+}
+
 
 app = FastAPI(title="GrowthAgent Xiaohongshu Growth API", version="0.1.0")
 app.add_middleware(
@@ -86,11 +95,40 @@ app.add_middleware(
 )
 
 
+def public_demo_active(request: Request) -> bool:
+    settings = get_settings()
+    if settings.allow_public_mutations:
+        return False
+    if settings.public_demo_mode:
+        return True
+    forwarded_host = request.headers.get("x-forwarded-host", "").split(",", 1)[0].strip()
+    hostname = forwarded_host or request.url.hostname or ""
+    hostname = hostname.removeprefix("[").split("]", 1)[0].split(":", 1)[0].lower()
+    return hostname not in LOCAL_HOSTS and not hostname.endswith(".local")
+
+
+@app.middleware("http")
+async def enforce_public_demo_boundary(request: Request, call_next):
+    demo_active = public_demo_active(request)
+    blocked_get = request.method in {"GET", "HEAD"} and request.url.path in PUBLIC_DEMO_BLOCKED_GETS
+    if demo_active and (request.method not in {"GET", "HEAD", "OPTIONS"} or blocked_get):
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "公开演示实例为只读模式，请在本机自托管后使用此功能。"},
+            headers={"x-growthagent-demo-mode": "read-only"},
+        )
+    response = await call_next(request)
+    if demo_active:
+        response.headers["x-growthagent-demo-mode"] = "read-only"
+    return response
+
+
 @app.get("/health")
-async def health():
+async def health(request: Request):
     settings = get_settings()
     return {
         "status": "ok",
+        "public_demo": public_demo_active(request),
         "mode": "guarded_auto",
         "autopublish": not settings.global_kill_switch,
         "autopublish_scope": "per_product",

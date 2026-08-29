@@ -1,6 +1,6 @@
 # Architecture
 
-ThreadPilot 只有一条主链路：`Product → Discovery → Qualified reply → Guarded publish`。
+GrowthAgent 只有一条主链路：`Product → Discovery → Qualified reply → Guarded publish`。
 
 - FastAPI：产品资料、Product Brain、机会评分与自动发布领域逻辑；
 - Celery Beat：每 5 分钟检查到期产品；产品自己的搜索间隔默认为 3 小时；

@@ -1,6 +1,6 @@
 # Contributing
 
-感谢改进 ThreadPilot。提交代码前请先搜索现有 Issue，并让每个 Pull Request 聚焦一个问题。
+感谢改进 GrowthAgent。提交代码前请先搜索现有 Issue，并让每个 Pull Request 聚焦一个问题。
 
 ## Local setup
 

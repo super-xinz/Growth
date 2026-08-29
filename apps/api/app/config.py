@@ -1,10 +1,13 @@
 from functools import lru_cache
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_env: str = "development"
     app_url: str = "http://localhost:3000"
+    public_demo_mode: bool = False
+    allow_public_mutations: bool = False
     secret_key: str = "change_me"
     encryption_key: str = "change_me"
     database_url: str = "sqlite+aiosqlite:///./reddit_growth.db"

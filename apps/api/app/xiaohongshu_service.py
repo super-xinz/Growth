@@ -14,8 +14,8 @@ from .models import (
     XiaohongshuOpportunity,
     now,
 )
-from .xiaohongshu_client import XiaohongshuError
 from .prompting import draft_prompt
+from .xiaohongshu_client import XiaohongshuError
 
 logger = logging.getLogger(__name__)
 

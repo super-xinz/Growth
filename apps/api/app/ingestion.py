@@ -1,6 +1,7 @@
 import hashlib
 import re
 from urllib.parse import urljoin, urlparse
+
 import httpx
 from bs4 import BeautifulSoup
 

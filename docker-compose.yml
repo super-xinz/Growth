@@ -30,7 +30,7 @@ services:
     volumes:
       - ./.xiaohongshu-data:/app/data
   api:
-    image: threadpilot-api:latest
+    image: growthagent-api:latest
     build: {context: ., dockerfile: infra/docker/api.Dockerfile}
     env_file: .env
     ports: ["127.0.0.1:8000:8000"]
@@ -40,7 +40,7 @@ services:
       redis: {condition: service_started}
       xiaohongshu-mcp: {condition: service_started}
   worker:
-    image: threadpilot-api:latest
+    image: growthagent-api:latest
     build: {context: ., dockerfile: infra/docker/api.Dockerfile}
     command: celery -A app.worker.celery_app worker -B --loglevel=INFO --schedule=/tmp/celerybeat-schedule
     env_file: .env

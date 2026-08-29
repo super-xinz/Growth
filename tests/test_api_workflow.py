@@ -1,16 +1,15 @@
 import hashlib
 
+import app.main as main_module
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
-import app.main as main_module
 from app.database import get_db
 from app.main import app
 from app.models import Base, Candidate, ProductSource, RedditContent, TrackingLink
 from app.providers import MockLLMProvider
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 
 @pytest_asyncio.fixture
@@ -193,3 +192,28 @@ async def test_complete_guarded_workflow(api_client):
     ] == "CLOSED"
     assert (await client.post("/v1/admin/kill-switch/enable")).status_code == 200
     assert (await client.post("/v1/admin/kill-switch/disable")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_public_demo_is_read_only(api_client):
+    _client, _session_factory = api_client
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="https://demo.example"
+    ) as public_client:
+        health = await public_client.get("/health")
+        assert health.status_code == 200
+        assert health.json()["public_demo"] is True
+        assert health.headers["x-growthagent-demo-mode"] == "read-only"
+
+        products = await public_client.get("/v1/products")
+        assert products.status_code == 200
+
+        create = await public_client.post(
+            "/v1/products",
+            json={"name": "Blocked", "website_url": "https://example.com"},
+        )
+        assert create.status_code == 403
+        assert create.headers["x-growthagent-demo-mode"] == "read-only"
+        assert "只读模式" in create.json()["detail"]
+
+        assert (await public_client.get("/v1/xiaohongshu/login/qrcode")).status_code == 403

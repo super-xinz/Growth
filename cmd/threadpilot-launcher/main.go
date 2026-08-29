@@ -23,7 +23,7 @@ var version = "latest"
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintf(os.Stderr, "ThreadPilot 启动失败：%v\n", err)
+		fmt.Fprintf(os.Stderr, "GrowthAgent 启动失败：%v\n", err)
 		fmt.Fprintln(os.Stderr, "请确认 Docker Desktop 已安装并正在运行。")
 		if runtime.GOOS == "windows" {
 			fmt.Fprintln(os.Stderr, "按回车键退出。")
@@ -63,14 +63,14 @@ func run() error {
 		return openBrowser("http://localhost:3000/dashboard")
 	}
 
-	fmt.Println("正在启动 ThreadPilot，首次运行会下载容器镜像……")
+	fmt.Println("正在启动 GrowthAgent，首次运行会下载容器镜像……")
 	if err := docker(root, append(args, "up", "-d")); err != nil {
 		return err
 	}
 	if err := waitFor("http://localhost:3000/dashboard", 3*time.Minute); err != nil {
 		return err
 	}
-	fmt.Println("ThreadPilot 已就绪：http://localhost:3000/dashboard")
+	fmt.Println("GrowthAgent 已就绪：http://localhost:3000/dashboard")
 	return openBrowser("http://localhost:3000/dashboard")
 }
 
@@ -79,7 +79,14 @@ func appDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(base, "ThreadPilot"), nil
+	root := filepath.Join(base, "GrowthAgent")
+	legacyRoot := filepath.Join(base, "ThreadPilot")
+	if _, err := os.Stat(root); errors.Is(err, os.ErrNotExist) {
+		if _, legacyErr := os.Stat(legacyRoot); legacyErr == nil {
+			return legacyRoot, nil
+		}
+	}
+	return root, nil
 }
 
 func writeBundled(name, target string) error {
@@ -126,7 +133,7 @@ func defaultEnv() string {
 func docker(dir string, args []string) error {
 	cmd := exec.Command("docker", args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "THREADPILOT_VERSION="+version)
+	cmd.Env = append(os.Environ(), "GROWTHAGENT_VERSION="+version)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

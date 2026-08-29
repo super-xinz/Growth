@@ -1,16 +1,17 @@
-import pytest
 from types import SimpleNamespace
 
-from app.xiaohongshu_service import normalize_search_results, opportunity_records
+import pytest
 from app.xiaohongshu_service import (
-    ensure_daily_quota,
-    import_search_opportunities,
-    validate_xiaohongshu_draft,
     XiaohongshuTargetError,
+    ensure_daily_quota,
     execute_xiaohongshu_action,
     generate_qualifying_drafts,
+    import_search_opportunities,
     manually_generate_and_publish_opportunity,
+    normalize_search_results,
+    opportunity_records,
     publish_best_qualifying_opportunity,
+    validate_xiaohongshu_draft,
 )
 
 
@@ -111,17 +112,15 @@ class FakeXiaohongshuClient:
 
 @pytest.mark.asyncio
 async def test_search_import_persists_once_and_suppresses_duplicate_targets(tmp_path):
-    from sqlalchemy import func, select
-    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
     from app.models import (
         Base,
         Product,
         XiaohongshuContent,
         XiaohongshuOpportunity,
     )
-
     from app.providers import MockLLMProvider
+    from sqlalchemy import func, select
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
     provider = MockLLMProvider()
     engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'xhs.db'}")
     sessions = async_sessionmaker(engine, expire_on_commit=False)
@@ -268,8 +267,6 @@ class DraftProvider:
 
 @pytest.mark.asyncio
 async def test_high_score_owned_product_gets_durable_promotional_draft(tmp_path):
-    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
     from app.models import (
         Base,
         Product,
@@ -277,6 +274,7 @@ async def test_high_score_owned_product_gets_durable_promotional_draft(tmp_path)
         XiaohongshuContent,
         XiaohongshuOpportunity,
     )
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
     engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'drafts.db'}")
     sessions = async_sessionmaker(engine, expire_on_commit=False)
@@ -331,9 +329,8 @@ async def test_high_score_owned_product_gets_durable_promotional_draft(tmp_path)
 
 @pytest.mark.asyncio
 async def test_auto_publish_sends_one_then_respects_cooldown(tmp_path):
-    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
     from app.models import Base, Product, XiaohongshuContent, XiaohongshuOpportunity
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
     engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'auto-publish.db'}")
     sessions = async_sessionmaker(engine, expire_on_commit=False)
@@ -395,8 +392,6 @@ async def test_auto_publish_sends_one_then_respects_cooldown(tmp_path):
 
 @pytest.mark.asyncio
 async def test_manual_click_can_generate_and_publish_low_score_opportunity(tmp_path):
-    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
     from app.models import (
         Base,
         Product,
@@ -404,6 +399,7 @@ async def test_manual_click_can_generate_and_publish_low_score_opportunity(tmp_p
         XiaohongshuContent,
         XiaohongshuOpportunity,
     )
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
     engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'manual-publish.db'}")
     sessions = async_sessionmaker(engine, expire_on_commit=False)

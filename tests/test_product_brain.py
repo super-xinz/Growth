@@ -1,8 +1,7 @@
 import pytest
-from pydantic import ValidationError
-
 from app.schemas import ProductBrainData
 from app.services import _normalize_brain_output
+from pydantic import ValidationError
 
 
 def test_provider_claim_aliases_are_normalized():

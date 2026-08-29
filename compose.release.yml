@@ -33,7 +33,7 @@ services:
     volumes: [xiaohongshu_data:/app/data]
 
   api:
-    image: ghcr.io/super-xinz/threadpilot-api:${THREADPILOT_VERSION:-latest}
+    image: ghcr.io/super-xinz/growthagent-api:${GROWTHAGENT_VERSION:-latest}
     restart: unless-stopped
     env_file: .env
     environment:
@@ -49,7 +49,7 @@ services:
       xiaohongshu-mcp: {condition: service_started}
 
   worker:
-    image: ghcr.io/super-xinz/threadpilot-api:${THREADPILOT_VERSION:-latest}
+    image: ghcr.io/super-xinz/growthagent-api:${GROWTHAGENT_VERSION:-latest}
     restart: unless-stopped
     command: celery -A app.worker.celery_app worker -B --loglevel=INFO --schedule=/tmp/celerybeat-schedule
     env_file: .env
@@ -65,7 +65,7 @@ services:
       xiaohongshu-mcp: {condition: service_started}
 
   web:
-    image: ghcr.io/super-xinz/threadpilot-web:${THREADPILOT_VERSION:-latest}
+    image: ghcr.io/super-xinz/growthagent-web:${GROWTHAGENT_VERSION:-latest}
     restart: unless-stopped
     environment:
       API_URL: http://api:8000

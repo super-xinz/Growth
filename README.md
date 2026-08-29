@@ -9,10 +9,10 @@
 <p>本地优先、可自托管的 AI 获客工作台。理解产品、发现真实需求、判断机会并完成克制触达。</p>
 
 <p>
-  <a href="https://github.com/super-xinz/ThreadPilot/releases"><img src="https://img.shields.io/github/v/release/super-xinz/ThreadPilot?style=flat-square&amp;label=release" alt="Release" /></a>
-  <a href="https://github.com/super-xinz/ThreadPilot/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/super-xinz/ThreadPilot/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI" /></a>
+  <a href="https://github.com/super-xinz/Growth/releases"><img src="https://img.shields.io/github/v/release/super-xinz/Growth?style=flat-square&amp;label=release" alt="Release" /></a>
+  <a href="https://github.com/super-xinz/Growth/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/super-xinz/Growth/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-EA0000?style=flat-square" alt="Apache 2.0 License" /></a>
-  <a href="#快速开始"><img src="https://img.shields.io/badge/deployment-self--hosted-171717?style=flat-square" alt="Self-hosted" /></a>
+  <a href="https://growthagent-guikesong.zeabur.app/"><img src="https://img.shields.io/badge/demo-online-16A34A?style=flat-square" alt="Online demo" /></a>
 </p>
 
 <p>
@@ -20,6 +20,7 @@
   <a href="#工作原理">工作原理</a> ·
   <a href="#核心能力">核心能力</a> ·
   <a href="#产品预览">产品预览</a> ·
+  <a href="#技术栈与选型">技术栈</a> ·
   <a href="#安全边界">安全边界</a> ·
   <a href="#参与贡献">参与贡献</a>
 </p>
@@ -46,18 +47,24 @@ AI 正在快速降低软件开发的门槛。当“把产品做出来”不再�
 
 ## 快速开始
 
+### 在线 Demo
+
+直接访问：**<https://growthagent-guikesong.zeabur.app/>**
+
+公开实例以只读模式运行，可查看工作台、产品流程与设置界面；为保护账号和数据，创建、删除、配置密钥、扫码登录和发布等写操作仅在本机自托管版本中开放。
+
 ### Windows 一键启动
 
 需要预先安装并启动 [Docker Desktop](https://www.docker.com/products/docker-desktop/)。
 
-1. 下载最新版 [ThreadPilot-Windows-x64.exe](https://github.com/super-xinz/ThreadPilot/releases/latest/download/ThreadPilot-Windows-x64.exe)；
+1. 下载最新版 [GrowthAgent-Windows-x64.exe](https://github.com/super-xinz/Growth/releases/latest/download/GrowthAgent-Windows-x64.exe)；
 2. 双击运行，启动器会自动生成本地密钥、拉取容器并等待服务就绪；
 3. 浏览器将自动打开 `http://localhost:3000/dashboard`。
 
 再次运行会更新并启动服务。停止服务：
 
 ```powershell
-ThreadPilot-Windows-x64.exe --stop
+GrowthAgent-Windows-x64.exe --stop
 ```
 
 > 当前启动器尚未进行商业代码签名，Windows SmartScreen 首次运行时可能提示来源未知。
@@ -67,8 +74,8 @@ ThreadPilot-Windows-x64.exe --stop
 需要 Git、Docker Desktop，或 Docker Engine + Compose v2。
 
 ```bash
-git clone https://github.com/super-xinz/ThreadPilot.git
-cd ThreadPilot
+git clone https://github.com/super-xinz/Growth.git
+cd Growth
 cp .env.example .env
 ```
 
@@ -173,6 +180,8 @@ API Key 通过本机 API 发送到后端，使用 `ENCRYPTION_KEY` 加密后存�
 
 GrowthAgent 当前面向本机或可信内网中的单用户部署。API 尚未提供多用户身份认证，**请勿将 3000、8000 或 18060 端口直接暴露到公网。**
 
+官方在线 Demo 由后端强制限制为只读模式。需要配置模型密钥、连接小红书账号或执行发布操作时，请使用本机自托管版本，或在可信认证代理之后部署并显式开启公网写操作。
+
 - Docker 端口只绑定到 `127.0.0.1`，PostgreSQL 和 Redis 不映射到宿主机；
 - 小红书 Cookie 保存在本地 Docker volume 或 `.xiaohongshu-data/`，并已被 Git 忽略；
 - 发布、搜索和回复受分数阈值、风险阈值、冷却、日上限与全局停止开关约束；
@@ -180,6 +189,20 @@ GrowthAgent 当前面向本机或可信内网中的单用户部署。API 尚未�
 - `.env`、私钥、Cookie 和本地数据不会被提交到版本库。
 
 完整说明见 [安全政策](SECURITY.md) 与 [运行手册](docs/runbook.md)。
+
+## 技术栈与选型
+
+| 层级 | 技术与框架 | 选型用途 |
+| --- | --- | --- |
+| Web | Next.js 15、React 19、TypeScript、TanStack Query | 服务端渲染控制台、类型安全的数据请求与交互状态管理 |
+| API | Python 3.12、FastAPI、Pydantic | 异步 API、请求校验和自动生成 OpenAPI 文档 |
+| 数据 | PostgreSQL 16、SQLAlchemy、Alembic | 持久化产品、机会、对话、审计记录与可重复数据库迁移 |
+| 任务队列 | Redis 7、Celery | 定时搜索、后台分析和低频自动化任务 |
+| AI | OpenAI 兼容接口、Mock Provider | 生成 Product Brain、机会判断与回复；Mock 支持无密钥演示 |
+| 平台连接 | 小红书 MCP | 本地浏览器登录、搜索、详情读取与受控回复 |
+| 可视化 | Recharts | 展示机会和转化分析数据 |
+| 交付 | Docker Compose、GitHub Actions、GHCR、Go 1.22 启动器 | 多架构镜像、自动测试、Release 与桌面一键启动 |
+| 部署 | Zeabur | 托管公开只读演示实例 |
 
 ## 架构
 
@@ -225,7 +248,22 @@ CI 会验证后端测试与 Ruff、前端测试与生产构建、Compose 配置�
 2. 交叉编译 Windows、macOS 与 Linux 启动器；
 3. 生成 SHA-256 校验文件并创建 GitHub Release。
 
-查看 [全部版本与下载](https://github.com/super-xinz/ThreadPilot/releases)。
+| 平台 | 最新安装包 |
+| --- | --- |
+| Windows x64 | [GrowthAgent-Windows-x64.exe](https://github.com/super-xinz/Growth/releases/latest/download/GrowthAgent-Windows-x64.exe) |
+| macOS Apple Silicon | [GrowthAgent-macOS-arm64](https://github.com/super-xinz/Growth/releases/latest/download/GrowthAgent-macOS-arm64) |
+| macOS Intel | [GrowthAgent-macOS-x64](https://github.com/super-xinz/Growth/releases/latest/download/GrowthAgent-macOS-x64) |
+| Linux x64 | [GrowthAgent-Linux-x64](https://github.com/super-xinz/Growth/releases/latest/download/GrowthAgent-Linux-x64) |
+| 校验文件 | [SHA256SUMS.txt](https://github.com/super-xinz/Growth/releases/latest/download/SHA256SUMS.txt) |
+
+查看 [全部版本与下载](https://github.com/super-xinz/Growth/releases)。
+
+## Guikesong 提交说明
+
+- 提交标识：Git Tag `#Guikesong`；
+- 本次集中开发日期：2026 年 8 月 28–29 日；
+- 本阶段完成内容：Zeabur 部署适配、数据库迁移幂等化、Worker 事件循环安全、线上 API 代理、小红书连接稳定性、公开 Demo 安全边界、CI 与 Release 交付；
+- 完整范围与验证记录见 [HACKATHON.md](HACKATHON.md)。
 
 ## 第三方服务
 
@@ -238,8 +276,8 @@ CI 会验证后端测试与 Ruff、前端测试与生产构建、Compose 配置�
 欢迎提交错误修复、文档改进和功能建议：
 
 - 阅读 [贡献指南](CONTRIBUTING.md)；
-- 提交 [Bug 报告](https://github.com/super-xinz/ThreadPilot/issues/new?template=bug_report.yml)；
-- 提交 [功能建议](https://github.com/super-xinz/ThreadPilot/issues/new?template=feature_request.yml)；
+- 提交 [Bug 报告](https://github.com/super-xinz/Growth/issues/new?template=bug_report.yml)；
+- 提交 [功能建议](https://github.com/super-xinz/Growth/issues/new?template=feature_request.yml)；
 - 在 Pull Request 中说明修改范围与验证结果。
 
 ## 许可与使用责任
