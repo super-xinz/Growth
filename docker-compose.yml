@@ -14,17 +14,16 @@ services:
   redis:
     image: redis:7-alpine
   xiaohongshu-mcp:
-    image: ${XIAOHONGSHU_MCP_IMAGE:-xpzouying/xiaohongshu-mcp:latest}
+    image: ${XIAOHONGSHU_MCP_IMAGE:-ghcr.io/super-xinz/growthagent-xiaohongshu:latest}
     platform: linux/amd64
     pull_policy: missing
     restart: unless-stopped
     init: true
     tty: true
     environment:
-      ROD_BROWSER_BIN: /usr/local/bin/cloak-chromium
       COOKIES_PATH: /app/data/cookies.json
       HOME: /app/data/home
-      XDG_CACHE_HOME: /app/data/cache
+      XDG_CACHE_HOME: /app/cache
       XDG_CONFIG_HOME: /app/data/config
     ports: ["127.0.0.1:18060:18060"]
     volumes:

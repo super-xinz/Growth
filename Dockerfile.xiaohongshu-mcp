@@ -1,7 +1,34 @@
+# syntax=docker/dockerfile:1.7
+
+FROM golang:1.24-alpine AS builder
+
+ARG XHS_UPSTREAM_COMMIT=6583124dfda92312b6bc19a042a6acfae63fe498
+WORKDIR /src
+
+RUN apk add --no-cache git ca-certificates && \
+    git init && \
+    git remote add origin https://github.com/xpzouying/xiaohongshu-mcp.git && \
+    git fetch --depth=1 origin "${XHS_UPSTREAM_COMMIT}" && \
+    git checkout --detach FETCH_HEAD && \
+    test "$(git rev-parse HEAD)" = "${XHS_UPSTREAM_COMMIT}"
+
+COPY infra/xiaohongshu-mcp/login-session.patch /tmp/login-session.patch
+RUN git apply --check /tmp/login-session.patch && \
+    git apply /tmp/login-session.patch && \
+    gofmt -w xiaohongshu/login.go && \
+    git diff --check && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+      -trimpath -ldflags="-s -w -X main.version=v2.5.0-growthagent.1" \
+      -o /out/app .
+
 FROM xpzouying/xiaohongshu-mcp@sha256:88e2603f324f567e0a254ed7a1e24d632a16eccc30e84ef3fb887e34a03d0fe3
+
+COPY --from=builder --chmod=0755 /out/app /app/app
+COPY --from=builder /src/LICENSE /usr/share/doc/growthagent-xiaohongshu/LICENSE
+COPY infra/xiaohongshu-mcp/MODIFICATIONS.md /usr/share/doc/growthagent-xiaohongshu/MODIFICATIONS.md
 
 ENV COOKIES_PATH=/app/data/cookies.json \
     HOME=/app/data/home \
-    XDG_CACHE_HOME=/app/data/cache \
+    XDG_CACHE_HOME=/app/cache \
     XDG_CONFIG_HOME=/app/data/config
 EXPOSE 18060

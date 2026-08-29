@@ -1,0 +1,70 @@
+diff --git a/xiaohongshu/login.go b/xiaohongshu/login.go
+index 67e002d..24d8ef7 100644
+--- a/xiaohongshu/login.go
++++ b/xiaohongshu/login.go
+@@ -29,11 +29,18 @@ func (a *LoginAction) CheckLoginStatus(ctx context.Context) (bool, error) {
+ 		return false, errors.Wrap(err, "check login status failed")
+ 	}
+ 
+-	if !exists {
+-		return false, errors.Wrap(err, "login status element not found")
++	if exists {
++		return true, nil
+ 	}
+ 
+-	return true, nil
++	// GrowthAgent modification: the sidebar selector changes across Xiaohongshu
++	// releases. The platform-provided user state is a second, semantic signal so a
++	// valid session is not reported as logged out just because the DOM moved.
++	if _, err := a.CurrentUser(ctx); err == nil {
++		return true, nil
++	}
++
++	return false, nil
+ }
+ 
+ // CurrentUser 当前登录用户的基础信息。
+@@ -112,6 +119,10 @@ func (a *LoginAction) FetchQrcodeImage(ctx context.Context) (string, bool, error
+ 
+ func (a *LoginAction) WaitForLogin(ctx context.Context) bool {
+ 	pp := a.page.Context(ctx)
++	// GrowthAgent modification: remember the anonymous/expired token present when
++	// the QR code was issued. A successful scan rotates web_session even when the
++	// post-login page no longer renders the historical sidebar selector.
++	initialSession := a.webSessionCookie()
+ 	ticker := time.NewTicker(500 * time.Millisecond)
+ 	defer ticker.Stop()
+ 
+@@ -120,10 +131,30 @@ func (a *LoginAction) WaitForLogin(ctx context.Context) bool {
+ 		case <-ctx.Done():
+ 			return false
+ 		case <-ticker.C:
+-			el, err := pp.Element(".main-container .user .link-wrapper .channel")
+-			if err == nil && el != nil {
++			exists, _, err := pp.Has(".main-container .user .link-wrapper .channel")
++			if err == nil && exists {
++				return true
++			}
++
++			currentSession := a.webSessionCookie()
++			if currentSession != "" && currentSession != initialSession {
+ 				return true
+ 			}
+ 		}
+ 	}
+ }
++
++func (a *LoginAction) webSessionCookie() string {
++	cks, err := a.page.Browser().GetCookies()
++	if err != nil {
++		return ""
++	}
++
++	for _, ck := range cks {
++		if ck.Name == "web_session" {
++			return ck.Value
++		}
++	}
++
++	return ""
++}

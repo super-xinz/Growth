@@ -10,6 +10,8 @@ import {safeOnboardingTarget} from "@/lib/onboarding";
 type Status={is_logged_in?:boolean;username?:string};
 type Qrcode={img?:string;timeout?:string;is_logged_in?:boolean};
 const STATUS_TIMEOUT_MS=20_000;
+const STATUS_POLL_MS=8_000;
+const QR_VALIDITY_MS=4*60_000;
 
 export default function XiaohongshuLogin({initialStatus,publicDemo}:{initialStatus:Status|null;publicDemo:boolean}){
   const [status,setStatus]=useState(initialStatus);
@@ -45,10 +47,14 @@ export default function XiaohongshuLogin({initialStatus,publicDemo}:{initialStat
   },[request]);
   const showQr=useCallback(async()=>{
     setBusy(true);setError("");
-    try{setQr(await request("/v1/xiaohongshu/login/qrcode"))}
+    try{
+      const next=await request("/v1/xiaohongshu/login/qrcode");
+      if(next.is_logged_in){setQr(null);await refreshStatus()}
+      else setQr(next);
+    }
     catch(reason){setError(reason instanceof Error?reason.message:"二维码获取失败")}
     finally{setBusy(false)}
-  },[request]);
+  },[refreshStatus,request]);
   async function logout(){
     if(!window.confirm("确定清除当前小红书登录状态吗？"))return;
     setBusy(true);
@@ -63,11 +69,16 @@ export default function XiaohongshuLogin({initialStatus,publicDemo}:{initialStat
     let timer=0;
     const poll=async()=>{
       if(await refreshStatus())setQr(null);
-      else if(!stopped)timer=window.setTimeout(poll,3000);
+      else if(!stopped)timer=window.setTimeout(poll,STATUS_POLL_MS);
     };
-    timer=window.setTimeout(poll,3000);
+    timer=window.setTimeout(poll,STATUS_POLL_MS);
     return()=>{stopped=true;window.clearTimeout(timer)};
   },[qr,status?.is_logged_in,refreshStatus,publicDemo]);
+  useEffect(()=>{
+    if(!qr?.img)return;
+    const timer=window.setTimeout(()=>setQr(null),QR_VALIDITY_MS);
+    return()=>window.clearTimeout(timer);
+  },[qr?.img]);
   useEffect(()=>{
     if(publicDemo||initialStatus!==null)return;
     void refreshStatus();
@@ -90,8 +101,8 @@ export default function XiaohongshuLogin({initialStatus,publicDemo}:{initialStat
     <>
     <div className="account-status"><span className={`account-dot ${status?.is_logged_in?"online":""}`}/><div><strong>{statusTitle}</strong><p>{statusCopy}</p></div></div>
     {error&&<div className="inline-error" role="alert">{error}</div>}
-    {qr?.img&&<div className="qr-panel"><Image src={qr.img} alt="小红书登录二维码" width={220} height={220} unoptimized/><p>请使用小红书 App 扫码。二维码约 {qr.timeout||"300"} 秒后过期。</p></div>}
-    <div className="actions">{checking?<button className="button secondary" disabled>正在检查…</button>:status?.is_logged_in?<button className="button secondary" disabled={busy} onClick={logout}>退出当前账号</button>:status===null?<button className="button secondary" disabled={busy} onClick={()=>void refreshStatus()}>重新检查</button>:<button className="button" disabled={busy} onClick={()=>void showQr()}>{busy?"正在生成…":qr?"刷新二维码":"显示登录二维码"}</button>}</div>
+    {qr?.img&&<div className="qr-panel"><Image src={qr.img} alt="小红书登录二维码" width={220} height={220} unoptimized/><p>请使用小红书 App 扫码并在手机上确认。确认后保留此页面，通常 15 秒内完成连接；二维码约 {qr.timeout||"240s"} 后过期。</p></div>}
+    <div className="actions">{checking?<button className="button secondary" disabled>正在检查…</button>:status?.is_logged_in?<button className="button secondary" disabled={busy} onClick={logout}>退出当前账号</button>:status===null?<button className="button secondary" disabled={busy} onClick={()=>void refreshStatus()}>重新检查</button>:<button className="button" disabled={busy||Boolean(qr)} onClick={()=>void showQr()}>{busy?"正在生成…":qr?"等待手机确认…":"显示登录二维码"}</button>}</div>
     </>}
   </section>;
 }

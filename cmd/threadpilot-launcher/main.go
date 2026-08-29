@@ -70,6 +70,9 @@ func run() error {
 		if err := ensureManagedLLMEnv(envPath); err != nil {
 			return err
 		}
+		if err := ensureXiaohongshuImageEnv(envPath); err != nil {
+			return err
+		}
 	}
 
 	args := []string{"compose", "-f", composePath, "--env-file", envPath}
@@ -151,7 +154,7 @@ func defaultEnv() string {
 		"LLM_DISPLAY_NAME=\"GrowthAgent AI\"",
 		"LLM_INSTALLATION_ID=ga_" + randomSecret(),
 		"GLOBAL_KILL_SWITCH=false",
-		"XIAOHONGSHU_MCP_IMAGE=xpzouying/xiaohongshu-mcp@sha256:88e2603f324f567e0a254ed7a1e24d632a16eccc30e84ef3fb887e34a03d0fe3",
+		"XIAOHONGSHU_MCP_IMAGE=" + xiaohongshuImage(),
 		"XIAOHONGSHU_SEARCH_TIMEOUT_SECONDS=75",
 		"XIAOHONGSHU_AUTO_SCORE_THRESHOLD=0.75",
 		"XIAOHONGSHU_AUTO_RISK_THRESHOLD=0.35",
@@ -161,6 +164,41 @@ func defaultEnv() string {
 		"XIAOHONGSHU_DETAILS_PER_KEYWORD=2",
 		"",
 	}, "\n")
+}
+
+func xiaohongshuImage() string {
+	tag := strings.TrimSpace(version)
+	if tag == "" {
+		tag = "latest"
+	}
+	return "ghcr.io/super-xinz/growthagent-xiaohongshu:" + tag
+}
+
+func ensureXiaohongshuImageEnv(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	content := string(data)
+	current := strings.TrimSpace(envValues(content)["XIAOHONGSHU_MCP_IMAGE"])
+	if current != "" && !strings.HasPrefix(current, "xpzouying/xiaohongshu-mcp") {
+		return nil
+	}
+
+	replacement := "XIAOHONGSHU_MCP_IMAGE=" + xiaohongshuImage()
+	lines := strings.Split(strings.TrimSuffix(content, "\n"), "\n")
+	replaced := false
+	for index, line := range lines {
+		if strings.HasPrefix(line, "XIAOHONGSHU_MCP_IMAGE=") {
+			lines[index] = replacement
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		lines = append(lines, replacement)
+	}
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o600)
 }
 
 func managedLLMConfigured() bool {

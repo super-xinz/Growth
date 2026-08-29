@@ -22,6 +22,13 @@ func withManagedDefaults(t *testing.T, baseURL, model, token string) {
 	})
 }
 
+func withVersion(t *testing.T, value string) {
+	t.Helper()
+	oldVersion := version
+	version = value
+	t.Cleanup(func() { version = oldVersion })
+}
+
 func TestDefaultEnvUsesManagedGatewayWithoutUpstreamKey(t *testing.T) {
 	withManagedDefaults(
 		t,
@@ -44,6 +51,53 @@ func TestDefaultEnvUsesManagedGatewayWithoutUpstreamKey(t *testing.T) {
 func TestLauncherStartsWithXiaohongshuOnboarding(t *testing.T) {
 	if onboardingURL != "http://localhost:3000/account?onboarding=1&next=%2Fdashboard" {
 		t.Fatalf("unexpected onboarding URL: %s", onboardingURL)
+	}
+}
+
+func TestDefaultEnvPinsPatchedXiaohongshuImageToRelease(t *testing.T) {
+	withVersion(t, "v0.1.3")
+	values := envValues(defaultEnv())
+	if values["XIAOHONGSHU_MCP_IMAGE"] != "ghcr.io/super-xinz/growthagent-xiaohongshu:v0.1.3" {
+		t.Fatalf("unexpected Xiaohongshu image: %q", values["XIAOHONGSHU_MCP_IMAGE"])
+	}
+}
+
+func TestEnsureXiaohongshuImageEnvMigratesKnownUpstreamImage(t *testing.T) {
+	withVersion(t, "v0.1.3")
+	path := filepath.Join(t.TempDir(), ".env")
+	original := "APP_ENV=production\nXIAOHONGSHU_MCP_IMAGE=xpzouying/xiaohongshu-mcp@sha256:old\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureXiaohongshuImageEnv(path); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := envValues(string(data))
+	if values["XIAOHONGSHU_MCP_IMAGE"] != "ghcr.io/super-xinz/growthagent-xiaohongshu:v0.1.3" {
+		t.Fatalf("upstream image was not migrated: %#v", values)
+	}
+}
+
+func TestEnsureXiaohongshuImageEnvPreservesCustomImage(t *testing.T) {
+	withVersion(t, "v0.1.3")
+	path := filepath.Join(t.TempDir(), ".env")
+	original := "XIAOHONGSHU_MCP_IMAGE=registry.example/custom-xhs:stable\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureXiaohongshuImageEnv(path); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != original {
+		t.Fatal("launcher overwrote a custom Xiaohongshu image")
 	}
 }
 

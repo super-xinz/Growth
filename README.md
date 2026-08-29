@@ -264,8 +264,9 @@ CI 会验证后端测试与 Ruff、前端测试与生产构建、Compose 配置�
 推送 `v*` 标签后，GitHub Actions 会自动：
 
 1. 构建 API 与 Web 的 `linux/amd64`、`linux/arm64` GHCR 镜像；
-2. 交叉编译 Windows、macOS 与 Linux 启动器；
-3. 生成 SHA-256 校验文件并创建 GitHub Release。
+2. 基于固定的上游版本构建带扫码会话修复的 Xiaohongshu MCP `linux/amd64` 镜像；
+3. 交叉编译 Windows、macOS 与 Linux 启动器；
+4. 生成 SHA-256 校验文件并创建 GitHub Release。
 
 | 平台 | 最新安装包 |
 | --- | --- |
@@ -279,7 +280,7 @@ CI 会验证后端测试与 Ruff、前端测试与生产构建、Compose 配置�
 
 ## 第三方服务
 
-小红书浏览器自动化由外部项目 [`xpzouying/xiaohongshu-mcp`](https://github.com/xpzouying/xiaohongshu-mcp) 的 Docker 镜像提供。其源码不内嵌在本仓库中，也不自动继承本项目许可证。使用前请自行检查上游条款和平台规则，详见 [第三方声明](THIRD_PARTY_NOTICES.md)。
+小红书浏览器自动化基于 Apache-2.0 项目 [`xpzouying/xiaohongshu-mcp`](https://github.com/xpzouying/xiaohongshu-mcp) 的固定版本构建。本仓库仅保存可审查的登录会话补丁，构建时拉取固定上游提交并在镜像内保留许可证与修改说明。使用前仍应检查平台规则，详见 [第三方声明](THIRD_PARTY_NOTICES.md)。
 
 上游镜像当前以 `linux/amd64` 运行；Apple Silicon 上由 Docker Desktop 兼容执行，首次启动和浏览器操作可能稍慢。
 
