@@ -6,6 +6,7 @@ import {useCallback, useEffect, useState} from "react";
 import {ScanLine} from "lucide-react";
 import {API, responseDetail} from "@/lib/api";
 import {safeOnboardingTarget} from "@/lib/onboarding";
+import {forgetXiaohongshuLogin,rememberXiaohongshuLogin} from "@/lib/xiaohongshu-session";
 
 type Status={is_logged_in?:boolean;username?:string};
 type Qrcode={img?:string;timeout?:string;is_logged_in?:boolean};
@@ -32,6 +33,8 @@ export default function XiaohongshuLogin({initialStatus,publicDemo}:{initialStat
     setChecking(true);
     try{
       const next=await request("/v1/xiaohongshu/status","GET",controller.signal);setStatus(next);setError("");
+      if(next.is_logged_in)rememberXiaohongshuLogin();
+      else forgetXiaohongshuLogin();
       if(next.is_logged_in&&typeof window!=="undefined"){
         const params=new URLSearchParams(window.location.search);
         if(params.get("onboarding")==="1")window.location.replace(safeOnboardingTarget(params.get("next")));
@@ -58,10 +61,13 @@ export default function XiaohongshuLogin({initialStatus,publicDemo}:{initialStat
   async function logout(){
     if(!window.confirm("确定清除当前小红书登录状态吗？"))return;
     setBusy(true);
-    try{await request("/v1/xiaohongshu/login","DELETE");setStatus({is_logged_in:false});setQr(null);setAutoQrAttempted(false)}
+    try{await request("/v1/xiaohongshu/login","DELETE");forgetXiaohongshuLogin();setStatus({is_logged_in:false});setQr(null);setAutoQrAttempted(false)}
     catch(reason){setError(reason instanceof Error?reason.message:"退出失败")}
     finally{setBusy(false)}
   }
+  useEffect(()=>{
+    if(status?.is_logged_in)rememberXiaohongshuLogin();
+  },[status?.is_logged_in]);
   useEffect(()=>{
     if(publicDemo)return;
     if(status?.is_logged_in||!qr)return;
