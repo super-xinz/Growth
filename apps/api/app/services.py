@@ -38,11 +38,57 @@ def _normalize_brain_output(raw: dict) -> dict:
     data = dict(raw or {})
     if "supported_claims" not in data and isinstance(data.get("claims"), list):
         data["supported_claims"] = data.pop("claims")
-    for claim in data.get("supported_claims", []):
+    normalized_claims = []
+    for raw_claim in data.get("supported_claims", []):
+        claim = dict(raw_claim) if isinstance(raw_claim, dict) else raw_claim
         if isinstance(claim, dict):
             if "source_quote" not in claim and "quote" in claim:
                 claim["source_quote"] = claim.pop("quote")
             claim.setdefault("confidence", 0.8)
+        normalized_claims.append(claim)
+    if "supported_claims" in data:
+        data["supported_claims"] = normalized_claims
+    return data
+
+
+def _ground_brain_claims(raw: dict, sources: list[ProductSource]) -> dict:
+    """Drop unverifiable model claims and keep a conservative source-backed fallback."""
+    data = _normalize_brain_output(raw)
+    source_map = {source.id: source.content for source in sources}
+    grounded = []
+    for raw_claim in data.get("supported_claims", []):
+        if not isinstance(raw_claim, dict):
+            continue
+        claim = dict(raw_claim)
+        content = source_map.get(str(claim.get("source_id") or ""))
+        quote = str(claim.get("source_quote") or "").strip()
+        if not content or not quote:
+            continue
+        normalized_quote = " ".join(quote.lower().split())
+        normalized_source = " ".join(content.lower().split())
+        if normalized_quote in normalized_source:
+            grounded.append(claim)
+
+    if not grounded:
+        for source in sources:
+            excerpts = re.split(r"[\n。！？.!?]+", source.content)
+            excerpt = next(
+                (" ".join(item.split()) for item in excerpts if len(" ".join(item.split())) >= 20),
+                "",
+            )
+            if not excerpt:
+                continue
+            quote = excerpt[:300]
+            grounded.append(
+                {
+                    "claim": quote[:240],
+                    "source_id": source.id,
+                    "source_quote": quote,
+                    "confidence": 0.6,
+                }
+            )
+            break
+    data["supported_claims"] = grounded
     return data
 
 
@@ -87,7 +133,7 @@ async def build_brain(db: AsyncSession, product: Product, provider: LLMProvider)
     schema = ProductBrainData.model_json_schema()
     raw = await provider.generate_structured("product_brain_v2", payload, schema)
     try:
-        brain_model = ProductBrainData.model_validate(_normalize_brain_output(raw))
+        brain_model = ProductBrainData.model_validate(_ground_brain_claims(raw, sources))
         _validate_brain_evidence(brain_model, sources)
     except (ValidationError, ValueError) as first_error:
         repair_payload = {
@@ -100,7 +146,7 @@ async def build_brain(db: AsyncSession, product: Product, provider: LLMProvider)
             "product_brain_repair_v2", repair_payload, schema
         )
         try:
-            brain_model = ProductBrainData.model_validate(_normalize_brain_output(repaired))
+            brain_model = ProductBrainData.model_validate(_ground_brain_claims(repaired, sources))
             _validate_brain_evidence(brain_model, sources)
         except (ValidationError, ValueError) as final_error:
             product.status = "ANALYSIS_FAILED"
