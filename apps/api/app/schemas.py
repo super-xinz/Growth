@@ -4,6 +4,10 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
 
+class AdminSessionIn(BaseModel):
+    token: str = Field(min_length=1, max_length=500)
+
+
 class LLMSettingsUpdate(BaseModel):
     provider: Literal["mock", "openai"] = "openai"
     api_key: str | None = Field(default=None, max_length=500)

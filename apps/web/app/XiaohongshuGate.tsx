@@ -7,17 +7,17 @@ import {xiaohongshuOnboardingPath} from "@/lib/onboarding";
 
 type GateState = "checking" | "ready" | "redirecting" | "unavailable";
 
-export default function XiaohongshuGate({publicDemo}: {publicDemo: boolean}) {
+export default function XiaohongshuGate({enabled}: {enabled: boolean}) {
   const pathname = usePathname();
   const router = useRouter();
   const [state, setState] = useState<GateState>(
-    publicDemo || pathname === "/account" ? "ready" : "checking",
+    !enabled || pathname === "/account" || pathname === "/access" ? "ready" : "checking",
   );
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (publicDemo || pathname === "/account") {
+    if (!enabled || pathname === "/account" || pathname === "/access") {
       setState("ready");
       return;
     }
@@ -57,7 +57,7 @@ export default function XiaohongshuGate({publicDemo}: {publicDemo: boolean}) {
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [attempt, pathname, publicDemo, router]);
+  }, [attempt, enabled, pathname, router]);
 
   if (state === "ready") return null;
 

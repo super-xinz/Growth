@@ -236,3 +236,57 @@ async def test_public_demo_is_read_only(api_client, monkeypatch):
         )
         assert admin_create.status_code == 201
         assert "x-growthagent-demo-mode" not in admin_create.headers
+
+        missing_session = await public_client.get("/v1/admin/session")
+        assert missing_session.json() == {"authenticated": False}
+
+        invalid_session = await public_client.post(
+            "/v1/admin/session", json={"token": "wrong-token"}
+        )
+        assert invalid_session.status_code == 401
+
+        session = await public_client.post(
+            "/v1/admin/session", json={"token": "test-admin-token"}
+        )
+        assert session.status_code == 200
+        assert session.json()["authenticated"] is True
+        set_cookie = session.headers["set-cookie"]
+        assert f"{main_module.ADMIN_SESSION_COOKIE}=" in set_cookie
+        assert "HttpOnly" in set_cookie
+        assert "Secure" in set_cookie
+        assert "SameSite=strict" in set_cookie
+
+        assert (await public_client.get("/v1/admin/session")).json() == {
+            "authenticated": True
+        }
+        session_create = await public_client.post(
+            "/v1/products",
+            json={"name": "Browser owner", "website_url": "https://example.org"},
+        )
+        assert session_create.status_code == 201
+        assert "x-growthagent-demo-mode" not in session_create.headers
+
+        logout = await public_client.delete("/v1/admin/session")
+        assert logout.status_code == 200
+        assert logout.json() == {"authenticated": False}
+        assert (
+            await public_client.post(
+                "/v1/products",
+                json={"name": "Blocked again", "website_url": "https://example.net"},
+            )
+        ).status_code == 403
+
+    signed_cookie = main_module.create_admin_session_cookie(
+        admin_settings, issued_at=1_000_000
+    )
+    assert main_module.valid_admin_session_cookie(
+        signed_cookie, admin_settings, now=1_000_001
+    )
+    assert not main_module.valid_admin_session_cookie(
+        f"{signed_cookie}tampered", admin_settings, now=1_000_001
+    )
+    assert not main_module.valid_admin_session_cookie(
+        signed_cookie,
+        admin_settings,
+        now=1_000_000 + main_module.ADMIN_SESSION_TTL_SECONDS + 1,
+    )

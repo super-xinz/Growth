@@ -1,8 +1,12 @@
+import base64
+import hashlib
+import hmac
 import logging
 import secrets
+import time
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from redis.asyncio import Redis
@@ -35,6 +39,7 @@ from .models import (
 from .providers import LLMProviderError, provider_for
 from .runtime_settings import effective_settings, save_llm_settings
 from .schemas import (
+    AdminSessionIn,
     AnalyticsOverviewOut,
     BrainOut,
     ConversationOut,
@@ -86,6 +91,10 @@ PUBLIC_DEMO_BLOCKED_GETS = {
     "/v1/xiaohongshu/account",
     "/v1/xiaohongshu/login/qrcode",
 }
+ADMIN_SESSION_COOKIE = "growthagent_admin_session"
+ADMIN_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
+ADMIN_SESSION_CLOCK_SKEW_SECONDS = 5 * 60
+ADMIN_SESSION_PURPOSE = "growthagent-admin-session-v1"
 
 
 app = FastAPI(title="GrowthAgent Xiaohongshu Growth API", version="0.1.1")
@@ -109,14 +118,48 @@ def public_demo_active(request: Request) -> bool:
     return hostname not in LOCAL_HOSTS and not hostname.endswith(".local")
 
 
+def admin_session_signature(settings, issued_at: int) -> str:
+    message = f"{ADMIN_SESSION_PURPOSE}:{issued_at}".encode()
+    digest = hmac.new(
+        settings.admin_api_token.strip().encode(), message, hashlib.sha256
+    ).digest()
+    return base64.urlsafe_b64encode(digest).decode().rstrip("=")
+
+
+def create_admin_session_cookie(settings, *, issued_at: int | None = None) -> str:
+    timestamp = int(time.time()) if issued_at is None else issued_at
+    return f"{timestamp}.{admin_session_signature(settings, timestamp)}"
+
+
+def valid_admin_session_cookie(value: str, settings, *, now: int | None = None) -> bool:
+    if not settings.admin_api_token.strip():
+        return False
+    timestamp_text, separator, supplied_signature = value.partition(".")
+    if not separator or not timestamp_text.isdigit() or not supplied_signature:
+        return False
+    issued_at = int(timestamp_text)
+    current_time = int(time.time()) if now is None else now
+    if issued_at > current_time + ADMIN_SESSION_CLOCK_SKEW_SECONDS:
+        return False
+    if current_time - issued_at > ADMIN_SESSION_TTL_SECONDS:
+        return False
+    expected_signature = admin_session_signature(settings, issued_at)
+    return secrets.compare_digest(supplied_signature, expected_signature)
+
+
 def admin_request_authorized(request: Request, settings) -> bool:
     configured_token = settings.admin_api_token.strip()
     scheme, separator, supplied_token = request.headers.get("authorization", "").partition(" ")
-    return bool(
+    bearer_authorized = bool(
         configured_token
         and separator
         and scheme.lower() == "bearer"
         and secrets.compare_digest(supplied_token.strip(), configured_token)
+    )
+    if bearer_authorized:
+        return True
+    return valid_admin_session_cookie(
+        request.cookies.get(ADMIN_SESSION_COOKIE, ""), settings
     )
 
 
@@ -131,8 +174,16 @@ async def enforce_public_demo_boundary(request: Request, call_next):
         and request.url.path == "/v1/managed-llm/chat/completions"
         and settings.managed_llm_gateway_enabled
     )
+    admin_session_mutation = (
+        request.url.path == "/v1/admin/session"
+        and request.method in {"POST", "DELETE"}
+    )
     if demo_restricted and (
-        (request.method not in {"GET", "HEAD", "OPTIONS"} and not managed_gateway_post)
+        (
+            request.method not in {"GET", "HEAD", "OPTIONS"}
+            and not managed_gateway_post
+            and not admin_session_mutation
+        )
         or blocked_get
     ):
         return JSONResponse(
@@ -144,6 +195,56 @@ async def enforce_public_demo_boundary(request: Request, call_next):
     if demo_restricted:
         response.headers["x-growthagent-demo-mode"] = "read-only"
     return response
+
+
+@app.get("/v1/admin/session")
+async def get_admin_session(request: Request):
+    return {"authenticated": admin_request_authorized(request, get_settings())}
+
+
+@app.post("/v1/admin/session")
+async def create_admin_session(
+    request: Request, response: Response, body: AdminSessionIn
+):
+    settings = get_settings()
+    configured_token = settings.admin_api_token.strip()
+    if not configured_token or not secrets.compare_digest(body.token.strip(), configured_token):
+        raise HTTPException(401, "授权链接无效或已失效")
+    forwarded_proto = request.headers.get("x-forwarded-proto", "").split(",", 1)[0].strip()
+    secure = (
+        forwarded_proto.lower() == "https"
+        or request.url.scheme == "https"
+        or settings.app_url.lower().startswith("https://")
+    )
+    response.set_cookie(
+        key=ADMIN_SESSION_COOKIE,
+        value=create_admin_session_cookie(settings),
+        max_age=ADMIN_SESSION_TTL_SECONDS,
+        httponly=True,
+        secure=secure,
+        samesite="strict",
+        path="/",
+    )
+    return {"authenticated": True, "expires_in": ADMIN_SESSION_TTL_SECONDS}
+
+
+@app.delete("/v1/admin/session")
+async def delete_admin_session(request: Request, response: Response):
+    settings = get_settings()
+    forwarded_proto = request.headers.get("x-forwarded-proto", "").split(",", 1)[0].strip()
+    secure = (
+        forwarded_proto.lower() == "https"
+        or request.url.scheme == "https"
+        or settings.app_url.lower().startswith("https://")
+    )
+    response.delete_cookie(
+        key=ADMIN_SESSION_COOKIE,
+        httponly=True,
+        secure=secure,
+        samesite="strict",
+        path="/",
+    )
+    return {"authenticated": False}
 
 
 @app.get("/health")
@@ -205,7 +306,10 @@ def llm_settings_response(settings, *, editable: bool, testable: bool) -> LLMSet
 @app.get("/v1/settings/llm", response_model=LLMSettingsOut)
 async def get_llm_settings(request: Request, db: AsyncSession = Depends(get_db)):
     settings = await effective_settings(db)
-    public_demo = public_demo_active(request)
+    base_settings = get_settings()
+    public_demo = public_demo_active(request) and not admin_request_authorized(
+        request, base_settings
+    )
     return llm_settings_response(
         settings,
         editable=not settings.llm_settings_locked and not public_demo,
@@ -233,8 +337,14 @@ async def update_llm_settings(
     await save_llm_settings(db, payload)
     return llm_settings_response(
         await effective_settings(db),
-        editable=not public_demo_active(request),
-        testable=not public_demo_active(request),
+        editable=not (
+            public_demo_active(request)
+            and not admin_request_authorized(request, get_settings())
+        ),
+        testable=not (
+            public_demo_active(request)
+            and not admin_request_authorized(request, get_settings())
+        ),
     )
 
 

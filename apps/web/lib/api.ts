@@ -9,14 +9,21 @@ export async function responseDetail(response:Response){
   catch{return text}
 }
 
-async function apiJson(path:string,{allow404=false}:{allow404?:boolean}={}){
-  const response=await fetch(`${API}${path}`,{cache:"no-store"});
+async function apiJson(
+  path:string,
+  {allow404=false,headers}:{allow404?:boolean;headers?:HeadersInit}={},
+){
+  const response=await fetch(`${API}${path}`,{cache:"no-store",headers});
   if(allow404&&response.status===404)return null;
   if(!response.ok)throw new Error(await responseDetail(response));
   return response.json();
 }
 
 export const getHealth=()=>apiJson("/health");
+export const getAdminSession=(cookieHeader="")=>apiJson(
+  "/v1/admin/session",
+  cookieHeader?{headers:{cookie:cookieHeader}}:{},
+);
 export const getProducts=()=>apiJson("/v1/products");
 export const getProduct=(id:string)=>apiJson(`/v1/products/${id}`,{allow404:true});
 export const getBrain=(id:string)=>apiJson(`/v1/products/${id}/brain`,{allow404:true});

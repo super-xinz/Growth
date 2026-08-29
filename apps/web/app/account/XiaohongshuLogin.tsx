@@ -84,7 +84,7 @@ export default function XiaohongshuLogin({initialStatus,publicDemo}:{initialStat
   return <section className="card account-card">
     <div className="settings-card-heading compact">
       <span className="settings-card-icon"><ScanLine size={18}/></span>
-      <div><div className="eyebrow">ACCOUNT</div><h2>小红书账号</h2><p>必须由账号本人扫码登录；Cookie 仅保存在本机数据卷。</p></div>
+      <div><div className="eyebrow">ACCOUNT</div><h2>小红书账号</h2><p>必须由账号本人扫码登录；Cookie 只保存在 GrowthAgent 私有数据卷，不进入网页代码或 GitHub。</p></div>
     </div>
     {publicDemo?<><div className="account-status"><span className="account-dot"/><div><strong>请在本机登录小红书</strong><p>公开网页不会读取或保存任何访问者的小红书 Cookie。</p></div></div><div className="actions"><Link className="button" href="https://github.com/super-xinz/Growth/releases/latest">下载本地版</Link></div></>:
     <>
