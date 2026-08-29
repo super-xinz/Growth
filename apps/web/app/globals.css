@@ -453,6 +453,9 @@ textarea::placeholder { color: #b3b3b3; }
 .login-gate-card h1 { font-size: clamp(26px, 5vw, 36px); line-height: 1.12; letter-spacing: -.04em; }
 .login-gate-card p { margin: 14px auto 24px; color: var(--body); font-size: 14px; line-height: 1.65; }
 .login-gate-card .spinner { display: block; margin: 0 auto; }
+.access-form { display: grid; gap: 14px; text-align: left; }
+.access-form label { color: var(--ink); font-size: 13px; font-weight: 600; }
+.access-form .button { width: 100%; }
 .loading-page { min-height: 60vh; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; color: var(--body); }
 .state-page { width: min(calc(100% - 2 * var(--page-gutter)), 640px); margin: 70px auto; padding: 48px; text-align: center; }
 .state-icon { display: inline-flex; align-items: center; justify-content: center; min-width: 58px; height: 58px; margin-bottom: 20px; padding: 0 13px; border-radius: 6px; background: var(--red); color: var(--white); font-size: 16px; font-weight: 750; }

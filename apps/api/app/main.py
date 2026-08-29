@@ -97,7 +97,7 @@ ADMIN_SESSION_CLOCK_SKEW_SECONDS = 5 * 60
 ADMIN_SESSION_PURPOSE = "growthagent-admin-session-v1"
 
 
-app = FastAPI(title="GrowthAgent Xiaohongshu Growth API", version="0.1.1")
+app = FastAPI(title="GrowthAgent Xiaohongshu Growth API", version="0.1.2")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list({"http://localhost:3000", get_settings().app_url.rstrip("/")}),
