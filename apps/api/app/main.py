@@ -88,7 +88,7 @@ PUBLIC_DEMO_BLOCKED_GETS = {
 }
 
 
-app = FastAPI(title="GrowthAgent Xiaohongshu Growth API", version="0.1.0")
+app = FastAPI(title="GrowthAgent Xiaohongshu Growth API", version="0.1.1")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list({"http://localhost:3000", get_settings().app_url.rstrip("/")}),
