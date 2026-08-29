@@ -19,7 +19,12 @@ import (
 //go:embed all:assets
 var bundled embed.FS
 
-var version = "latest"
+var (
+	version                = "latest"
+	managedLLMBaseURL      = ""
+	managedLLMModel        = ""
+	managedLLMGatewayToken = ""
+)
 
 func main() {
 	if err := run(); err != nil {
@@ -34,6 +39,10 @@ func main() {
 }
 
 func run() error {
+	if len(os.Args) > 1 && os.Args[1] == "--version" {
+		fmt.Printf("GrowthAgent %s\n", version)
+		return nil
+	}
 	if _, err := exec.LookPath("docker"); err != nil {
 		return errors.New("没有找到 Docker，请先安装 Docker Desktop")
 	}
@@ -51,6 +60,12 @@ func run() error {
 	envPath := filepath.Join(root, ".env")
 	if _, err := os.Stat(envPath); errors.Is(err, os.ErrNotExist) {
 		if err := os.WriteFile(envPath, []byte(defaultEnv()), 0o600); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else {
+		if err := ensureManagedLLMEnv(envPath); err != nil {
 			return err
 		}
 	}
@@ -106,19 +121,35 @@ func randomSecret() string {
 }
 
 func defaultEnv() string {
+	provider := "mock"
+	apiKey := ""
+	baseURL := "https://api.deepseek.com"
+	model := ""
+	locked := "false"
+	if managedLLMConfigured() {
+		provider = "openai"
+		apiKey = managedLLMGatewayToken
+		baseURL = managedLLMBaseURL
+		model = managedLLMModel
+		locked = "true"
+	}
 	return strings.Join([]string{
 		"APP_ENV=production",
 		"APP_URL=http://localhost:3000",
 		"SECRET_KEY=" + randomSecret(),
 		"ENCRYPTION_KEY=" + randomSecret(),
 		"POSTGRES_PASSWORD=" + randomSecret(),
-		"LLM_PROVIDER=mock",
-		"LLM_API_KEY=",
-		"LLM_BASE_URL=https://api.openai.com/v1",
-		"LLM_STRONG_MODEL=",
+		"LLM_PROVIDER=" + provider,
+		"LLM_API_KEY=" + apiKey,
+		"LLM_BASE_URL=" + baseURL,
+		"LLM_STRONG_MODEL=" + model,
 		"LLM_TIMEOUT_SECONDS=150",
 		"LLM_ENABLE_THINKING=false",
+		"LLM_SETTINGS_LOCKED=" + locked,
+		"LLM_DISPLAY_NAME=\"GrowthAgent AI\"",
+		"LLM_INSTALLATION_ID=ga_" + randomSecret(),
 		"GLOBAL_KILL_SWITCH=false",
+		"XIAOHONGSHU_MCP_IMAGE=xpzouying/xiaohongshu-mcp@sha256:88e2603f324f567e0a254ed7a1e24d632a16eccc30e84ef3fb887e34a03d0fe3",
 		"XIAOHONGSHU_SEARCH_TIMEOUT_SECONDS=75",
 		"XIAOHONGSHU_AUTO_SCORE_THRESHOLD=0.75",
 		"XIAOHONGSHU_AUTO_RISK_THRESHOLD=0.35",
@@ -128,6 +159,86 @@ func defaultEnv() string {
 		"XIAOHONGSHU_DETAILS_PER_KEYWORD=2",
 		"",
 	}, "\n")
+}
+
+func managedLLMConfigured() bool {
+	values := []string{managedLLMBaseURL, managedLLMModel, managedLLMGatewayToken}
+	for _, value := range values {
+		if strings.TrimSpace(value) == "" || strings.ContainsAny(value, "\r\n") {
+			return false
+		}
+	}
+	return strings.HasPrefix(managedLLMBaseURL, "https://")
+}
+
+func ensureManagedLLMEnv(path string) error {
+	if !managedLLMConfigured() {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	content := string(data)
+	values := envValues(content)
+	locked := strings.EqualFold(values["LLM_SETTINGS_LOCKED"], "true")
+	provider := strings.TrimSpace(values["LLM_PROVIDER"])
+	customProvider := provider != "" && provider != "mock" && !locked
+	if customProvider {
+		return nil
+	}
+
+	installationID := values["LLM_INSTALLATION_ID"]
+	if !strings.HasPrefix(installationID, "ga_") {
+		installationID = "ga_" + randomSecret()
+	}
+	updates := map[string]string{
+		"LLM_PROVIDER":        "openai",
+		"LLM_API_KEY":         managedLLMGatewayToken,
+		"LLM_BASE_URL":        managedLLMBaseURL,
+		"LLM_STRONG_MODEL":    managedLLMModel,
+		"LLM_SETTINGS_LOCKED": "true",
+		"LLM_DISPLAY_NAME":    "\"GrowthAgent AI\"",
+		"LLM_INSTALLATION_ID": installationID,
+	}
+	order := []string{
+		"LLM_PROVIDER",
+		"LLM_API_KEY",
+		"LLM_BASE_URL",
+		"LLM_STRONG_MODEL",
+		"LLM_SETTINGS_LOCKED",
+		"LLM_DISPLAY_NAME",
+		"LLM_INSTALLATION_ID",
+	}
+	lines := strings.Split(strings.TrimSuffix(content, "\n"), "\n")
+	seen := make(map[string]bool, len(updates))
+	for index, line := range lines {
+		key, _, found := strings.Cut(line, "=")
+		if !found {
+			continue
+		}
+		if value, ok := updates[key]; ok {
+			lines[index] = key + "=" + value
+			seen[key] = true
+		}
+	}
+	for _, key := range order {
+		if !seen[key] {
+			lines = append(lines, key+"="+updates[key])
+		}
+	}
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o600)
+}
+
+func envValues(content string) map[string]string {
+	values := make(map[string]string)
+	for _, line := range strings.Split(content, "\n") {
+		key, value, found := strings.Cut(line, "=")
+		if found && key != "" && !strings.HasPrefix(key, "#") {
+			values[key] = value
+		}
+	}
+	return values
 }
 
 func docker(dir string, args []string) error {

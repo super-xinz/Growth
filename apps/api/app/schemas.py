@@ -26,6 +26,11 @@ class LLMSettingsOut(BaseModel):
     enable_thinking: bool
     api_key_configured: bool
     api_key_hint: str | None = None
+    display_name: str
+    ready: bool
+    managed: bool
+    editable: bool
+    testable: bool
 
 
 class LLMTestOut(BaseModel):

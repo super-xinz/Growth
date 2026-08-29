@@ -128,11 +128,15 @@ class OpenAICompatibleProvider(LLMProvider):
     def __init__(self, settings: Settings):
         if not settings.llm_api_key or not settings.llm_strong_model:
             raise ValueError("LLM_API_KEY and LLM_STRONG_MODEL are required")
+        default_headers = None
+        if settings.llm_installation_id:
+            default_headers = {"X-GrowthAgent-Installation": settings.llm_installation_id}
         self.client = AsyncOpenAI(
             api_key=settings.llm_api_key,
             base_url=settings.llm_base_url,
             timeout=settings.llm_timeout_seconds,
             max_retries=0,
+            default_headers=default_headers,
         )
         self.model = settings.llm_strong_model
         base_url = settings.llm_base_url.lower()

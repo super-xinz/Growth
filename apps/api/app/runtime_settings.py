@@ -47,8 +47,11 @@ async def llm_settings_payload(db: AsyncSession) -> dict[str, Any]:
 
 
 async def effective_settings(db: AsyncSession) -> Settings:
+    base = get_settings()
+    if base.llm_settings_locked:
+        return base
     payload = await llm_settings_payload(db)
-    return get_settings().model_copy(update=payload)
+    return base.model_copy(update=payload)
 
 
 async def save_llm_settings(db: AsyncSession, payload: dict[str, Any]) -> None:

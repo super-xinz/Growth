@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import {useCallback, useEffect, useState} from "react";
 import {ScanLine} from "lucide-react";
 import {API, responseDetail} from "@/lib/api";
@@ -9,7 +10,7 @@ type Status={is_logged_in?:boolean;username?:string};
 type Qrcode={img?:string;timeout?:string;is_logged_in?:boolean};
 const STATUS_TIMEOUT_MS=20_000;
 
-export default function XiaohongshuLogin({initialStatus}:{initialStatus:Status|null}){
+export default function XiaohongshuLogin({initialStatus,publicDemo}:{initialStatus:Status|null;publicDemo:boolean}){
   const [status,setStatus]=useState(initialStatus);
   const [qr,setQr]=useState<Qrcode|null>(null);
   const [busy,setBusy]=useState(false);
@@ -47,6 +48,7 @@ export default function XiaohongshuLogin({initialStatus}:{initialStatus:Status|n
     finally{setBusy(false)}
   }
   useEffect(()=>{
+    if(publicDemo)return;
     if(status?.is_logged_in||!qr)return;
     let stopped=false;
     let timer=0;
@@ -56,11 +58,11 @@ export default function XiaohongshuLogin({initialStatus}:{initialStatus:Status|n
     };
     timer=window.setTimeout(poll,3000);
     return()=>{stopped=true;window.clearTimeout(timer)};
-  },[qr,status?.is_logged_in,refreshStatus]);
+  },[qr,status?.is_logged_in,refreshStatus,publicDemo]);
   useEffect(()=>{
-    if(initialStatus!==null)return;
+    if(publicDemo||initialStatus!==null)return;
     void refreshStatus();
-  },[initialStatus,refreshStatus]);
+  },[initialStatus,refreshStatus,publicDemo]);
 
   const statusTitle=checking?"正在检查连接":status?.is_logged_in?"已连接小红书":status===null?"连接状态未知":"尚未登录";
   const statusCopy=checking?"页面已就绪，正在后台确认小红书登录状态。":status?.is_logged_in?(status.username||"自动搜索与低频评论已可用"):status===null?"状态服务响应较慢，可以重新检查。":"使用小红书 App 扫码登录，不需要 API Key。";
@@ -68,11 +70,14 @@ export default function XiaohongshuLogin({initialStatus}:{initialStatus:Status|n
   return <section className="card account-card">
     <div className="settings-card-heading compact">
       <span className="settings-card-icon"><ScanLine size={18}/></span>
-      <div><div className="eyebrow">ACCOUNT</div><h2>小红书账号</h2><p>扫码完成本机登录，Cookie 仅保存在本地数据卷。</p></div>
+      <div><div className="eyebrow">ACCOUNT</div><h2>小红书账号</h2><p>必须由账号本人扫码登录；Cookie 仅保存在本机数据卷。</p></div>
     </div>
+    {publicDemo?<><div className="account-status"><span className="account-dot"/><div><strong>请在本机登录小红书</strong><p>公开网页不会读取或保存任何访问者的小红书 Cookie。</p></div></div><div className="actions"><Link className="button" href="https://github.com/super-xinz/Growth/releases/latest">下载本地版</Link></div></>:
+    <>
     <div className="account-status"><span className={`account-dot ${status?.is_logged_in?"online":""}`}/><div><strong>{statusTitle}</strong><p>{statusCopy}</p></div></div>
     {error&&<div className="inline-error" role="alert">{error}</div>}
     {qr?.img&&<div className="qr-panel"><Image src={qr.img} alt="小红书登录二维码" width={220} height={220} unoptimized/><p>请使用小红书 App 扫码。二维码约 {qr.timeout||"300"} 秒后过期。</p></div>}
     <div className="actions">{checking?<button className="button secondary" disabled>正在检查…</button>:status?.is_logged_in?<button className="button secondary" disabled={busy} onClick={logout}>退出当前账号</button>:status===null?<button className="button secondary" disabled={busy} onClick={()=>void refreshStatus()}>重新检查</button>:<button className="button" disabled={busy} onClick={showQr}>{qr?"刷新二维码":"显示登录二维码"}</button>}</div>
+    </>}
   </section>;
 }

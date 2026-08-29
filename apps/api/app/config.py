@@ -20,6 +20,16 @@ class Settings(BaseSettings):
     llm_strong_model: str = ""
     llm_timeout_seconds: float = 150.0
     llm_enable_thinking: bool = False
+    llm_settings_locked: bool = False
+    llm_display_name: str = "GrowthAgent AI"
+    llm_installation_id: str = ""
+    managed_llm_gateway_enabled: bool = False
+    managed_llm_gateway_token: str = ""
+    managed_llm_requests_per_minute: int = 12
+    managed_llm_requests_per_day: int = 200
+    managed_llm_global_requests_per_day: int = 10000
+    managed_llm_max_input_chars: int = 80000
+    managed_llm_max_output_tokens: int = 5000
     default_daily_reply_limit: int = 2
     max_daily_reply_limit: int = 2
     max_subreddit_daily_reply_limit: int = 1

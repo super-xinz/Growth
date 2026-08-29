@@ -58,7 +58,7 @@ AI 正在快速降低软件开发的门槛。当“把产品做出来”不再�
 需要预先安装并启动 [Docker Desktop](https://www.docker.com/products/docker-desktop/)。
 
 1. 下载最新版 [GrowthAgent-Windows-x64.exe](https://github.com/super-xinz/Growth/releases/latest/download/GrowthAgent-Windows-x64.exe)；
-2. 双击运行，启动器会自动生成本地密钥、拉取容器并等待服务就绪；
+2. 双击运行，启动器会自动生成本地密钥、配置 GrowthAgent 托管模型、拉取容器并等待服务就绪；
 3. 浏览器将自动打开 `http://localhost:3000/dashboard`。
 
 再次运行会更新并启动服务。停止服务：
@@ -69,7 +69,18 @@ GrowthAgent-Windows-x64.exe --stop
 
 > 当前启动器尚未进行商业代码签名，Windows SmartScreen 首次运行时可能提示来源未知。
 
-### macOS、Linux 与开发者
+### macOS、Linux 安装包
+
+从 [最新 Release](https://github.com/super-xinz/Growth/releases/latest) 下载对应的 `.tar.gz`，解压后运行：
+
+```bash
+tar -xzf GrowthAgent-macOS-arm64.tar.gz   # 按平台替换文件名
+./GrowthAgent-macOS-arm64
+```
+
+macOS 安装包尚未完成 Developer ID 签名与公证，首次运行可能被系统拦截；生产分发前应完成正式签名。Linux 需要 Docker Engine 与 Compose v2。
+
+### 开发者
 
 需要 Git、Docker Desktop，或 Docker Engine + Compose v2。
 
@@ -120,7 +131,7 @@ make dev
 - **匹配与风险双重判断**：每个机会同时提供匹配分数、风险分数和可核对的判断依据。
 - **低频、可控的自动化**：支持机会门槛、风险上限、搜索间隔、触达冷却、每日上限和全局停止开关。
 - **对话与转化归因**：保留互动上下文，并记录访问、注册和激活事件。
-- **本地优先的数据边界**：模型密钥加密保存，小红书 Cookie 仅保存在本地数据卷。
+- **清晰的数据边界**：小红书 Cookie 仅保存在本地数据卷；托管模型只接收完成任务所需的产品资料与提示词。
 
 ## 产品预览
 
@@ -165,16 +176,11 @@ make dev
 
 ## 模型配置
 
-启动后进入“设置 → 模型服务”，填写：
+正式发布的安装包默认连接 GrowthAgent 托管模型，用户无需填写 API 地址、模型名称或 API Key。DeepSeek 原始 Key 只存在于托管 API 的服务端环境变量中，不会进入前端、Git 或公开安装包。
 
-- OpenAI 兼容 API 地址；
-- 模型名称；
-- API Key；
-- 可选的兼容接口思考模式。
+安装包携带的是可轮换、受限流的网关凭证，并为每台安装生成独立标识。网关会固定模型、限制输入输出长度，并同时执行每分钟、每日和全局额度控制。
 
-API Key 通过本机 API 发送到后端，使用 `ENCRYPTION_KEY` 加密后存入数据库。读取设置时只返回“已配置”和末四位提示，明文不会返回浏览器，也不会进入 Next.js 构建产物或 Git。
-
-未配置在线模型时默认使用 Mock，不会意外产生模型费用。
+开发者需要使用自己的模型时，可设置 `LLM_SETTINGS_LOCKED=false`，然后在“设置 → 模型服务”中保存 OpenAI 兼容配置。该 Key 使用 `ENCRYPTION_KEY` 加密后存入数据库，读取时不会返回明文。
 
 ## 安全边界
 
@@ -187,6 +193,7 @@ GrowthAgent 当前面向本机或可信内网中的单用户部署。API 尚未�
 - 发布、搜索和回复受分数阈值、风险阈值、冷却、日上限与全局停止开关约束；
 - 外部写操作不自动重试，避免平台已接收但响应丢失时产生重复评论；
 - `.env`、私钥、Cookie 和本地数据不会被提交到版本库。
+- 托管模型网关凭证可以从安装包中提取，因此它绝不能是 DeepSeek 原始 Key；上游 Key 必须只保存在服务端，并通过网关限流保护。
 
 完整说明见 [安全政策](SECURITY.md) 与 [运行手册](docs/runbook.md)。
 
@@ -242,6 +249,16 @@ CI 会验证后端测试与 Ruff、前端测试与生产构建、Compose 配置�
 
 ## 发布
 
+发布安装包前先配置 GitHub Actions：
+
+| 类型 | 名称 | 值 |
+| --- | --- | --- |
+| Repository variable | `MANAGED_LLM_BASE_URL` | `https://growthagent-guikesong.zeabur.app/api/v1/managed-llm` |
+| Repository variable | `MANAGED_LLM_MODEL` | `deepseek-v4-flash` |
+| Repository secret | `MANAGED_LLM_GATEWAY_TOKEN` | 与托管 API 相同的随机网关 Token，不能使用 DeepSeek Key |
+
+托管 API 需要设置 `LLM_API_KEY`、`LLM_SETTINGS_LOCKED=true`、`MANAGED_LLM_GATEWAY_ENABLED=true` 与同一个 `MANAGED_LLM_GATEWAY_TOKEN`。完整清单见 [运行手册](docs/runbook.md)。缺少上述发布变量时，Release 工作流会直接停止，避免再次发布只带 Mock 的安装包。
+
 推送 `v*` 标签后，GitHub Actions 会自动：
 
 1. 构建 API 与 Web 的 `linux/amd64`、`linux/arm64` GHCR 镜像；
@@ -251,19 +268,12 @@ CI 会验证后端测试与 Ruff、前端测试与生产构建、Compose 配置�
 | 平台 | 最新安装包 |
 | --- | --- |
 | Windows x64 | [GrowthAgent-Windows-x64.exe](https://github.com/super-xinz/Growth/releases/latest/download/GrowthAgent-Windows-x64.exe) |
-| macOS Apple Silicon | [GrowthAgent-macOS-arm64](https://github.com/super-xinz/Growth/releases/latest/download/GrowthAgent-macOS-arm64) |
-| macOS Intel | [GrowthAgent-macOS-x64](https://github.com/super-xinz/Growth/releases/latest/download/GrowthAgent-macOS-x64) |
-| Linux x64 | [GrowthAgent-Linux-x64](https://github.com/super-xinz/Growth/releases/latest/download/GrowthAgent-Linux-x64) |
+| macOS Apple Silicon | [在最新版本中选择 arm64 包](https://github.com/super-xinz/Growth/releases/latest) |
+| macOS Intel | [在最新版本中选择 x64 包](https://github.com/super-xinz/Growth/releases/latest) |
+| Linux x64 | [在最新版本中选择 Linux x64 包](https://github.com/super-xinz/Growth/releases/latest) |
 | 校验文件 | [SHA256SUMS.txt](https://github.com/super-xinz/Growth/releases/latest/download/SHA256SUMS.txt) |
 
 查看 [全部版本与下载](https://github.com/super-xinz/Growth/releases)。
-
-## Guikesong 提交说明
-
-- 提交标识：Git Tag `#Guikesong`；
-- 本次集中开发日期：2026 年 8 月 28–29 日；
-- 本阶段完成内容：Zeabur 部署适配、数据库迁移幂等化、Worker 事件循环安全、线上 API 代理、小红书连接稳定性、公开 Demo 安全边界、CI 与 Release 交付；
-- 完整范围与验证记录见 [HACKATHON.md](HACKATHON.md)。
 
 ## 第三方服务
 

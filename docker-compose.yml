@@ -14,7 +14,7 @@ services:
   redis:
     image: redis:7-alpine
   xiaohongshu-mcp:
-    image: xpzouying/xiaohongshu-mcp:latest
+    image: ${XIAOHONGSHU_MCP_IMAGE:-xpzouying/xiaohongshu-mcp:latest}
     platform: linux/amd64
     pull_policy: missing
     restart: unless-stopped

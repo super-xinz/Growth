@@ -55,12 +55,23 @@ jobs:
       - name: Build launchers
         env:
           VERSION: ${{ github.ref_name }}
+          MANAGED_LLM_BASE_URL: ${{ vars.MANAGED_LLM_BASE_URL }}
+          MANAGED_LLM_MODEL: ${{ vars.MANAGED_LLM_MODEL }}
+          MANAGED_LLM_GATEWAY_TOKEN: ${{ secrets.MANAGED_LLM_GATEWAY_TOKEN }}
         run: |
-          mkdir -p dist
-          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o dist/GrowthAgent-Windows-x64.exe ./cmd/threadpilot-launcher
-          GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o dist/GrowthAgent-macOS-arm64 ./cmd/threadpilot-launcher
-          GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o dist/GrowthAgent-macOS-x64 ./cmd/threadpilot-launcher
-          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o dist/GrowthAgent-Linux-x64 ./cmd/threadpilot-launcher
+          test -n "$MANAGED_LLM_BASE_URL"
+          test -n "$MANAGED_LLM_MODEL"
+          test -n "$MANAGED_LLM_GATEWAY_TOKEN"
+          mkdir -p build dist
+          LDFLAGS="-s -w -X main.version=${VERSION} -X main.managedLLMBaseURL=${MANAGED_LLM_BASE_URL} -X main.managedLLMModel=${MANAGED_LLM_MODEL} -X main.managedLLMGatewayToken=${MANAGED_LLM_GATEWAY_TOKEN}"
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" -o dist/GrowthAgent-Windows-x64.exe ./cmd/threadpilot-launcher
+          GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "$LDFLAGS" -o build/GrowthAgent-macOS-arm64 ./cmd/threadpilot-launcher
+          GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" -o build/GrowthAgent-macOS-x64 ./cmd/threadpilot-launcher
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" -o build/GrowthAgent-Linux-x64 ./cmd/threadpilot-launcher
+          chmod +x build/GrowthAgent-macOS-arm64 build/GrowthAgent-macOS-x64 build/GrowthAgent-Linux-x64
+          tar -czf dist/GrowthAgent-macOS-arm64.tar.gz -C build GrowthAgent-macOS-arm64
+          tar -czf dist/GrowthAgent-macOS-x64.tar.gz -C build GrowthAgent-macOS-x64
+          tar -czf dist/GrowthAgent-Linux-x64.tar.gz -C build GrowthAgent-Linux-x64
           cd dist && sha256sum * > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:

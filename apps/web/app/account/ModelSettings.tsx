@@ -11,6 +11,11 @@ type LLMSettings = {
   enable_thinking: boolean;
   api_key_configured: boolean;
   api_key_hint?: string | null;
+  display_name: string;
+  ready: boolean;
+  managed: boolean;
+  editable: boolean;
+  testable: boolean;
 };
 
 export default function ModelSettings(){
@@ -20,6 +25,11 @@ export default function ModelSettings(){
   const [apiKey,setApiKey]=useState("");
   const [enableThinking,setEnableThinking]=useState(false);
   const [keyHint,setKeyHint]=useState<string|null>(null);
+  const [displayName,setDisplayName]=useState("GrowthAgent AI");
+  const [ready,setReady]=useState(false);
+  const [managed,setManaged]=useState(false);
+  const [editable,setEditable]=useState(true);
+  const [testable,setTestable]=useState(false);
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
@@ -37,6 +47,11 @@ export default function ModelSettings(){
     setModel(settings.model);
     setEnableThinking(settings.enable_thinking);
     setKeyHint(settings.api_key_hint||null);
+    setDisplayName(settings.display_name||"GrowthAgent AI");
+    setReady(settings.ready);
+    setManaged(settings.managed);
+    setEditable(settings.editable);
+    setTestable(settings.testable);
     setApiKey("");
   }
 
@@ -84,12 +99,26 @@ export default function ModelSettings(){
     finally{setBusy(false)}
   }
 
+  async function testConfiguredConnection(){
+    setBusy(true);setFailed(false);setMessage("");
+    try{
+      const result=await request("/v1/settings/llm/test",{method:"POST"});
+      setMessage(result.message||"连接成功。");
+    }
+    catch(reason){setFailed(true);setMessage(reason instanceof Error?reason.message:"连接失败")}
+    finally{setBusy(false)}
+  }
+
   return <section className="card model-settings-card">
     <div className="settings-card-heading">
       <span className="settings-card-icon"><KeyRound size={18}/></span>
-      <div><div className="eyebrow">MODEL</div><h2>模型服务</h2><p>密钥由本机后端加密保存，不会进入前端构建或返回浏览器。</p></div>
+      <div><div className="eyebrow">MODEL</div><h2>模型服务</h2><p>{managed?"模型由 GrowthAgent 服务端托管，用户无需填写 API Key。":"密钥由本机后端加密保存，不会进入前端构建或返回浏览器。"}</p></div>
     </div>
-    {loading?<div className="settings-loading"><span className="spinner small"/>正在读取配置…</div>:<form className="settings-form" onSubmit={save}>
+    {loading?<div className="settings-loading"><span className="spinner small"/>正在读取配置…</div>:!editable?<div className="settings-form">
+      <div className="account-status"><span className={`account-dot ${ready?"online":""}`}/><div><strong>{ready?`${displayName} 已就绪`:"模型服务尚未就绪"}</strong><p>{ready?`已配置 ${model||"默认模型"}，打开产品即可直接使用。`:managed?"管理员还需要补充服务端模型密钥。":"当前是公开只读页面，模型配置不在浏览器中开放。"}</p></div></div>
+      {message&&<div className={failed?"feedback-error":"feedback-message"} role={failed?"alert":"status"}>{message}</div>}
+      {testable&&<div className="actions"><button className="button secondary" type="button" disabled={busy} onClick={testConfiguredConnection}><PlugZap size={16}/>{busy?"正在测试…":"测试模型连接"}</button></div>}
+    </div>:<form className="settings-form" onSubmit={save}>
       <label>服务类型
         <select value={provider} onChange={event=>setProvider(event.target.value as LLMSettings["provider"])}>
           <option value="openai">OpenAI 兼容接口</option>

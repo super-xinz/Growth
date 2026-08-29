@@ -12,6 +12,8 @@ node_modules/
 .next/
 .pnpm-store/
 dist/
+build/
+*.egg-info/
 release/
 *.db
 *.tsbuildinfo

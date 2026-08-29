@@ -9,5 +9,11 @@ GrowthAgent 只有一条主链路：`Product → Discovery → Qualified reply �
 - Next.js：工作台、账号、产品任务和发现结果；
 - xiaohongshu-mcp：扫码登录、公开搜索、详情读取与单次评论/回复。
 - 加密设置：浏览器只提交模型配置；API 使用 `ENCRYPTION_KEY` 加密后存入 PostgreSQL，worker 每次任务读取有效配置。
+- 托管模型：安装版 API 使用可轮换网关 Token 与独立安装标识调用公网网关；网关在服务端固定 DeepSeek 模型、执行三级限流，并持有真正的上游 Key。
+
+```text
+本机 API ── 安装标识 + 网关 Token ──▶ 托管模型网关 ── 服务端 Key ──▶ DeepSeek
+本机小红书 MCP ── 本人扫码 ──▶ Cookie 仅保存在本机 volume
+```
 
 自动发布只接受模型评分，不接受启发式评分。评分模型异常时，候选最高 64 分。发布前再次验证登录、目标、冷却、日上限、机会分、风险分与全局停止开关。任何写请求异常都标记为 `PUBLISH_UNKNOWN`，不自动重试。

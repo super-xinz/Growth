@@ -13,6 +13,7 @@ from .automation import AutomationError, run_product_automation
 from .config import get_settings
 from .database import get_db
 from .ingestion import ingest_url
+from .managed_llm import forward_managed_chat, managed_gateway_ready
 from .models import (
     Candidate,
     Conversation,
@@ -111,7 +112,16 @@ def public_demo_active(request: Request) -> bool:
 async def enforce_public_demo_boundary(request: Request, call_next):
     demo_active = public_demo_active(request)
     blocked_get = request.method in {"GET", "HEAD"} and request.url.path in PUBLIC_DEMO_BLOCKED_GETS
-    if demo_active and (request.method not in {"GET", "HEAD", "OPTIONS"} or blocked_get):
+    settings = get_settings()
+    managed_gateway_post = (
+        request.method == "POST"
+        and request.url.path == "/v1/managed-llm/chat/completions"
+        and settings.managed_llm_gateway_enabled
+    )
+    if demo_active and (
+        (request.method not in {"GET", "HEAD", "OPTIONS"} and not managed_gateway_post)
+        or blocked_get
+    ):
         return JSONResponse(
             status_code=403,
             content={"detail": "公开演示实例为只读模式，请在本机自托管后使用此功能。"},
@@ -126,6 +136,11 @@ async def enforce_public_demo_boundary(request: Request, call_next):
 @app.get("/health")
 async def health(request: Request):
     settings = get_settings()
+    llm_ready = bool(
+        settings.llm_provider != "mock"
+        and settings.llm_api_key
+        and settings.llm_strong_model
+    )
     return {
         "status": "ok",
         "public_demo": public_demo_active(request),
@@ -133,6 +148,10 @@ async def health(request: Request):
         "autopublish": not settings.global_kill_switch,
         "autopublish_scope": "per_product",
         "kill_switch": settings.global_kill_switch,
+        "llm_ready": llm_ready,
+        "llm_managed": settings.llm_settings_locked,
+        "managed_gateway_ready": managed_gateway_ready(settings),
+        "xiaohongshu_login_required": True,
     }
 
 
@@ -151,27 +170,42 @@ async def ready(db: AsyncSession = Depends(get_db)):
     return {"status": "ready", "database": "ok", "redis": "ok"}
 
 
-def llm_settings_response(settings) -> LLMSettingsOut:
+def llm_settings_response(settings, *, editable: bool, testable: bool) -> LLMSettingsOut:
     key = settings.llm_api_key or ""
+    managed = settings.llm_settings_locked
+    ready = bool(settings.llm_provider != "mock" and key and settings.llm_strong_model)
     return LLMSettingsOut(
         provider=settings.llm_provider,
         base_url=settings.llm_base_url,
         model=settings.llm_strong_model,
         enable_thinking=settings.llm_enable_thinking,
         api_key_configured=bool(key),
-        api_key_hint=f"••••{key[-4:]}" if key else None,
+        api_key_hint=f"••••{key[-4:]}" if key and not managed else None,
+        display_name=settings.llm_display_name,
+        ready=ready,
+        managed=managed,
+        editable=editable,
+        testable=testable and ready,
     )
 
 
 @app.get("/v1/settings/llm", response_model=LLMSettingsOut)
-async def get_llm_settings(db: AsyncSession = Depends(get_db)):
-    return llm_settings_response(await effective_settings(db))
+async def get_llm_settings(request: Request, db: AsyncSession = Depends(get_db)):
+    settings = await effective_settings(db)
+    public_demo = public_demo_active(request)
+    return llm_settings_response(
+        settings,
+        editable=not settings.llm_settings_locked and not public_demo,
+        testable=not public_demo,
+    )
 
 
 @app.put("/v1/settings/llm", response_model=LLMSettingsOut)
 async def update_llm_settings(
-    body: LLMSettingsUpdate, db: AsyncSession = Depends(get_db)
+    request: Request, body: LLMSettingsUpdate, db: AsyncSession = Depends(get_db)
 ):
+    if get_settings().llm_settings_locked:
+        raise HTTPException(403, "模型服务由系统统一配置，无需用户修改")
     current = await effective_settings(db)
     api_key = "" if body.clear_api_key else (body.api_key or current.llm_api_key)
     if body.provider != "mock" and (not api_key or not body.model.strip()):
@@ -184,7 +218,11 @@ async def update_llm_settings(
         "llm_enable_thinking": body.enable_thinking,
     }
     await save_llm_settings(db, payload)
-    return llm_settings_response(await effective_settings(db))
+    return llm_settings_response(
+        await effective_settings(db),
+        editable=not public_demo_active(request),
+        testable=not public_demo_active(request),
+    )
 
 
 @app.post("/v1/settings/llm/test", response_model=LLMTestOut)
@@ -197,6 +235,11 @@ async def test_llm_settings(db: AsyncSession = Depends(get_db)):
     except (LLMProviderError, ValueError) as error:
         raise HTTPException(422, str(error)) from error
     return LLMTestOut(ok=True, message="模型连接成功。")
+
+
+@app.post("/v1/managed-llm/chat/completions")
+async def managed_llm_chat(request: Request):
+    return await forward_managed_chat(request, get_settings())
 
 
 async def xhs_call(method: str):

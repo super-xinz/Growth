@@ -1,7 +1,7 @@
 import pytest
 from app.config import Settings
 from app.models import AppSetting
-from app.runtime_settings import decrypt_settings, encrypt_settings
+from app.runtime_settings import decrypt_settings, effective_settings, encrypt_settings
 from sqlalchemy import select
 
 pytest_plugins = ["test_api_workflow"]
@@ -15,6 +15,21 @@ def test_settings_encryption_roundtrip_and_wrong_key_rejection():
     assert decrypt_settings(encrypted, first) == {"llm_api_key": "sk-super-secret"}
     with pytest.raises(ValueError, match="ENCRYPTION_KEY"):
         decrypt_settings(encrypted, Settings(encryption_key="different-test-key"))
+
+
+@pytest.mark.asyncio
+async def test_locked_llm_settings_ignore_database_overrides(monkeypatch):
+    managed = Settings(
+        llm_settings_locked=True,
+        llm_provider="openai",
+        llm_api_key="server-managed-key",
+        llm_base_url="https://managed.example/v1",
+        llm_strong_model="managed-model",
+    )
+    monkeypatch.setattr("app.runtime_settings.get_settings", lambda: managed)
+    effective = await effective_settings(None)
+    assert effective.llm_api_key == "server-managed-key"
+    assert effective.llm_strong_model == "managed-model"
 
 
 @pytest.mark.asyncio

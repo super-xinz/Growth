@@ -1,4 +1,4 @@
-FROM xpzouying/xiaohongshu-mcp:latest
+FROM xpzouying/xiaohongshu-mcp@sha256:88e2603f324f567e0a254ed7a1e24d632a16eccc30e84ef3fb887e34a03d0fe3
 
 ENV COOKIES_PATH=/app/data/cookies.json \
     HOME=/app/data/home \

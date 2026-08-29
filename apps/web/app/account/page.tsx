@@ -1,6 +1,8 @@
 import XiaohongshuLogin from "./XiaohongshuLogin";
 import ModelSettings from "./ModelSettings";
+import {getHealth} from "@/lib/api";
 
-export default function AccountPage(){
-  return <><header className="page-header account-header"><div><div className="eyebrow">SETTINGS</div><h1>连接与模型</h1><p>配置模型服务，并管理本机的小红书登录状态。</p></div></header><div className="settings-stack"><ModelSettings/><XiaohongshuLogin initialStatus={null}/></div></>;
+export default async function AccountPage(){
+  const health=await getHealth();
+  return <><header className="page-header account-header"><div><div className="eyebrow">SETTINGS</div><h1>模型与小红书</h1><p>模型服务开箱即用；小红书账号由使用者本人扫码登录。</p></div></header><div className="settings-stack"><ModelSettings/><XiaohongshuLogin initialStatus={null} publicDemo={Boolean(health.public_demo)}/></div></>;
 }
